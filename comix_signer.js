@@ -88,9 +88,22 @@ function createAxiosSandbox(securePath, cfgToken, mangaId, chapterId, urlPath) {
     body: createRecursiveProxy('document.body')
   };
 
-  const pageUrl = chapterId
-    ? `https://comix.to/title/${mangaId}-slug/${chapterId}-chapter-1`
-    : `https://comix.to/title/${mangaId}-slug`;
+  let pageUrl = 'https://comix.to';
+  let pagePath = '/';
+  if (mangaId) {
+    pageUrl = chapterId
+      ? `https://comix.to/title/${mangaId}-slug/${chapterId}-chapter-1`
+      : `https://comix.to/title/${mangaId}-slug`;
+    pagePath = chapterId
+      ? `/title/${mangaId}-slug/${chapterId}-chapter-1`
+      : `/title/${mangaId}-slug`;
+  } else if (urlPath && (urlPath.startsWith('/manga') || urlPath.startsWith('/browse'))) {
+    pageUrl = 'https://comix.to/browse';
+    pagePath = '/browse';
+  } else if (urlPath && urlPath.startsWith('/collections')) {
+    pageUrl = 'https://comix.to/collections';
+    pagePath = '/collections';
+  }
 
   const mockLocation = createRecursiveProxy('location', {
     href: pageUrl,
@@ -99,7 +112,7 @@ function createAxiosSandbox(securePath, cfgToken, mangaId, chapterId, urlPath) {
     host: 'comix.to',
     hostname: 'comix.to',
     port: '',
-    pathname: chapterId ? `/title/${mangaId}-slug/${chapterId}-chapter-1` : `/title/${mangaId}-slug`,
+    pathname: pagePath,
     search: '',
     hash: '',
     replace: () => {},
@@ -192,8 +205,9 @@ rl.on('line', async (line) => {
     }
 
     if (action === 'sign') {
-      const { urlPath, params = {}, chapterId } = msg;
-      const axiosInstance = createAxiosSandbox(currentSecurePath, currentCfg, currentMangaId, chapterId, urlPath);
+      const { urlPath, params = {}, chapterId, mangaId } = msg;
+      const targetMangaId = mangaId || currentMangaId;
+      const axiosInstance = createAxiosSandbox(currentSecurePath, currentCfg, targetMangaId, chapterId, urlPath);
       const config = { url: urlPath, params: { ...params }, headers: {} };
       const resConfig = await axiosInstance.requestInterceptor(config);
       console.log(JSON.stringify({ id, success: true, params: resConfig.params }));
@@ -201,8 +215,9 @@ rl.on('line', async (line) => {
     }
 
     if (action === 'decrypt') {
-      const { urlPath, data, chapterId } = msg;
-      const axiosInstance = createAxiosSandbox(currentSecurePath, currentCfg, currentMangaId, chapterId, urlPath);
+      const { urlPath, data, chapterId, mangaId } = msg;
+      const targetMangaId = mangaId || currentMangaId;
+      const axiosInstance = createAxiosSandbox(currentSecurePath, currentCfg, targetMangaId, chapterId, urlPath);
       const decrypted = await axiosInstance.responseInterceptor({
         data,
         headers: { 'x-enc': '1' },

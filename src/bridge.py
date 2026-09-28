@@ -48,24 +48,30 @@ class NodeSignerBridge:
             raise RuntimeError(f"Signer bridge process exited unexpectedly: {err}")
         return json.loads(resp_line)
 
-    def sign(self, url_path: str, params: dict = None, chapter_id: str = None) -> dict:
-        res = self._send({
+    def sign(self, url_path: str, params: dict = None, chapter_id: str = None, manga_id: str = None) -> dict:
+        payload = {
             "action": "sign",
             "urlPath": url_path,
             "params": params or {},
             "chapterId": chapter_id
-        })
+        }
+        if manga_id:
+            payload["mangaId"] = manga_id
+        res = self._send(payload)
         if not res.get("success"):
             raise RuntimeError(f"Failed to sign request {url_path}: {res.get('error')}")
         return res.get("params", {})
 
-    def decrypt(self, url_path: str, data: dict, chapter_id: str = None) -> dict:
-        res = self._send({
+    def decrypt(self, url_path: str, data: dict, chapter_id: str = None, manga_id: str = None) -> dict:
+        payload = {
             "action": "decrypt",
             "urlPath": url_path,
             "chapterId": chapter_id,
             "data": data
-        })
+        }
+        if manga_id:
+            payload["mangaId"] = manga_id
+        res = self._send(payload)
         if not res.get("success"):
             raise RuntimeError(f"Failed to decrypt response for {url_path}: {res.get('error')}")
         return res.get("data", {})

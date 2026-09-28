@@ -16,7 +16,7 @@ class ComixDownloader:
     def __init__(self, target_url: str, output_dir: str = None, cookie_file: str = None,
                  concurrency: int = DEFAULT_CONCURRENCY, preferred_group: str = None,
                  lang: str = "en", merge_all: bool = False, keep_images: bool = False,
-                 use_aria2: bool = None):
+                 use_aria2: bool = None, from_here: bool = False):
         self.target_url = target_url
         self.output_dir = Path(output_dir) if output_dir else None
         self.cookie_file = cookie_file or find_default_cookies()
@@ -27,6 +27,7 @@ class ComixDownloader:
         self.merge_all = merge_all
         self.keep_images = keep_images
         self.use_aria2 = use_aria2
+        self.from_here = from_here
 
         self.api = ComixAPI(self.target_url, self.cookie_header)
 
@@ -67,6 +68,21 @@ class ComixDownloader:
                 x.get("id", 0)
             ), reverse=True)[0]
             deduped.append(best)
+
+        if self.api.target_chapter_id:
+            target_id_str = str(self.api.target_chapter_id)
+            matching = [c for c in deduped if str(c.get("id")) == target_id_str or str(c.get("hid")) == target_id_str]
+            if matching:
+                target_ch = matching[0]
+                if self.from_here:
+                    t_num = target_ch.get("number", 0)
+                    deduped = [c for c in deduped if c.get("number", 0) >= t_num]
+                    print(f"[*] Downloading from Chapter {t_num} onwards ({len(deduped)} chapters).")
+                else:
+                    deduped = [target_ch]
+                    print(f"[*] Downloading targeted Chapter {target_ch.get('number')} only.")
+            else:
+                print(f"[!] Warning: Target chapter ID {target_id_str} not found in chapter list.")
 
         if chapter_range_spec and chapter_range_spec.lower() != "all":
             selected_numbers = parse_chapter_spec(chapter_range_spec)
@@ -141,5 +157,99 @@ class ComixDownloader:
             print(f"\n[OK] Finished downloading! {len(downloaded_pdfs)} PDF files saved in:")
             print(f"    {self.output_dir.resolve()}")
 
+        finally:
+            self.api.close()
+
+    @classmethod
+    def search(
+        cls,
+        keyword: str = "",
+        limit: int = 10,
+        manga_type: str = None,
+        status: str = None,
+        sort: str = None,
+        genres: list = None,
+        demographics: list = None,
+        interactive: bool = True,
+        cookie_file: str = None,
+        downloader_options: dict = None
+    ):
+        """Search Comix.to titles with optional filters and interactive selection."""
+        from .cookies import find_default_cookies, parse_cookie_file
+        from .utils import print_manga_table
+
+        c_file = cookie_file or find_default_cookies()
+        c_header = parse_cookie_file(c_file) if c_file else ""
+        api = ComixAPI("", cookie_header=c_header)
+        try:
+            query_desc = f"'{keyword}'" if keyword else "all titles"
+            filter_descs = []
+            if manga_type:
+                filter_descs.append(f"type={manga_type}")
+            if status:
+                filter_descs.append(f"status={status}")
+            if genres:
+                filter_descs.append(f"genres={genres}")
+            if demographics:
+                filter_descs.append(f"demographics={demographics}")
+            if sort:
+                filter_descs.append(f"sort={sort}")
+            filter_str = f" [{', '.join(filter_descs)}]" if filter_descs else ""
+
+            print(f"[*] Searching Comix.to for {query_desc}{filter_str}...")
+            results = api.search_titles(
+                keyword=keyword,
+                limit=limit,
+                manga_type=manga_type,
+                status=status,
+                sort=sort,
+                genres=genres,
+                demographics=demographics
+            )
+            if not results:
+                print(f"[!] No results found for {query_desc}{filter_str}.")
+                return None
+
+            print_manga_table(results)
+
+            if not interactive:
+                return results
+
+            while True:
+                choice = input(f"\n[?] Enter number to download (1-{len(results)}) or 'q' to cancel: ").strip()
+                if choice.lower() in ("q", "quit", "exit"):
+                    print("[*] Cancelled.")
+                    return None
+                if choice.isdigit() and 1 <= int(choice) <= len(results):
+                    selected = results[int(choice) - 1]
+                    title_url = selected.get("url") or f"/title/{selected.get('hid')}"
+                    print(f"\n[*] Selected: {selected.get('title')} ({title_url})")
+
+                    opts = downloader_options.copy() if downloader_options else {}
+                    opts["cookie_file"] = c_file
+                    chapter_range = opts.pop("chapter_range", "all")
+                    downloader = cls(target_url=title_url, **opts)
+                    downloader.run(chapter_range=chapter_range)
+                    return downloader
+                else:
+                    print(f"[!] Invalid selection. Please enter 1 to {len(results)} or 'q'.")
+        finally:
+            api.close()
+
+    def list_groups(self):
+        """Display all scanlation groups that contributed to this title."""
+        try:
+            self.api.bootstrap()
+            groups = self.api.get_manga_groups()
+            if not groups:
+                print(f"[*] No specific group metadata found for {self.api.manga_title}.")
+                return
+            print(f"\n[*] Available scanlation groups for '{self.api.manga_title}':")
+            for g in groups:
+                name = g.get("name") or g.get("title") or "Unknown"
+                gid = g.get("id")
+                slug = g.get("slug", "")
+                print(f"  • {name} (ID: {gid}, Slug: {slug})")
+            print(f"\nTip: Download with a specific group using: -g \"{groups[0].get('name')}\"\n")
         finally:
             self.api.close()
