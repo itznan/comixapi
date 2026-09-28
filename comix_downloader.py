@@ -28,6 +28,13 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Account & Library management (requires cookies)
+  python comix_downloader.py sync
+  python comix_downloader.py --sync
+  python comix_downloader.py --export-bookmarks mal
+  python comix_downloader.py --export-bookmarks anilist
+  python comix_downloader.py following
+
   # Discover trending / top manhwa and manga
   python comix_downloader.py trending --limit 10
   python comix_downloader.py trending --days 7 --limit 10
@@ -50,8 +57,13 @@ Examples:
   python comix_downloader.py https://comix.to/title/<slug> --list-groups
         """
     )
-    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search' / 'trending' command")
-    parser.add_argument("search_query", nargs="?", default=None, help="Search query when using 'search' command")
+    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'sync', 'export', 'following' command")
+    parser.add_argument("search_query", nargs="?", default=None, help="Search query or format when using commands")
+
+    # Account & Library options
+    parser.add_argument("--sync", dest="sync_flag", action="store_true", help="Sync reading list: check followed titles and download new/missing chapters")
+    parser.add_argument("--export-bookmarks", dest="export_bookmarks", nargs="?", const="mal", help="Export Comix.to bookmarks to MAL, AniList, CSV, or JSON (default: mal)")
+    parser.add_argument("--dry-run", action="store_true", help="When syncing, check for new chapters without actually downloading")
 
     # Search & Discovery options
     parser.add_argument("-s", "--search", dest="search_flag", help="Search keyword (alternative to 'search <query>')")
@@ -83,6 +95,54 @@ Examples:
     parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after PDF creation")
 
     args = parser.parse_args()
+
+    # Route: Sync library command or flag
+    is_sync_cmd = (args.target and args.target.lower() in ("sync", "update-library")) or bool(args.sync_flag)
+    if is_sync_cmd:
+        ComixDownloader.sync_library(
+            cookie_file=args.cookies,
+            dry_run=args.dry_run,
+            downloader_options={
+                "output_dir": args.output,
+                "concurrency": args.threads,
+                "preferred_group": args.group,
+                "lang": args.lang,
+                "merge_all": args.merge,
+                "keep_images": args.keep_images,
+                "use_aria2": args.use_aria2
+            }
+        )
+        return
+
+    # Route: Export bookmarks command or flag
+    is_export_cmd = (args.target and args.target.lower() in ("export", "export-bookmarks")) or bool(args.export_bookmarks)
+    if is_export_cmd:
+        fmt = args.export_bookmarks if args.export_bookmarks else (args.search_query or "mal")
+        ComixDownloader.export_bookmarks(
+            format_type=fmt,
+            output_file=args.output,
+            cookie_file=args.cookies
+        )
+        return
+
+    # Route: List followed titles / library
+    is_following_cmd = (args.target and args.target.lower() in ("following", "library", "bookmarks"))
+    if is_following_cmd:
+        ComixDownloader.list_following(
+            interactive=not args.no_interactive,
+            cookie_file=args.cookies,
+            downloader_options={
+                "output_dir": args.output,
+                "concurrency": args.threads,
+                "preferred_group": args.group,
+                "lang": args.lang,
+                "merge_all": args.merge,
+                "keep_images": args.keep_images,
+                "use_aria2": args.use_aria2,
+                "chapter_range": args.chapters
+            }
+        )
+        return
 
     # Route: Trending / Top command or flag
     is_trending_cmd = (args.target and args.target.lower() in ("trending", "top")) or bool(args.trending_flag)

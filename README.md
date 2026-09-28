@@ -8,6 +8,8 @@ A high-performance Python tool to download manga, manhwa, or comic series from *
 
 - **Interactive In-CLI Search**: Search Comix.to directly from your terminal (`search <query>`) with interactive number selection to download immediately without opening a browser.
 - **Trending & "Top" Discovery**: Discover daily, weekly, or monthly trending (`trending`) and most followed (`--trend-type follows`) comics with instant download prompts.
+- **Account Follows & Library Sync**: Automatically scan all bookmarked titles in your personal Comix.to reading list (`--sync`) and download newly released chapters.
+- **Bookmark & Library Export**: Export your personal Comix.to reading list to MyAnimeList (MAL XML), AniList (JSON), or CSV (`--export-bookmarks`).
 - **Advanced Filtering & Sorting**: Filter searches by comic type (`--type manhwa, manga, manhua`), status (`--status releasing, finished, on_hiatus`), and sort order (`--sort views_7d:desc, chapter_updated_at:desc, rated_score:desc`).
 - **Direct Chapter URL & Resume**: Pass any title URL or a direct chapter URL (e.g. `https://comix.to/title/<slug>/<chapterId>-chapter-10`) with optional `--from-here` to download starting from that chapter onwards.
 - **Scanlation Group Discovery**: Use `--list-groups` to inspect all scanlation groups that contributed to a title before downloading.
@@ -125,7 +127,31 @@ python comix_downloader.py trending -c 1-5 --merge
 python comix_downloader.py trending --days 1 --no-interactive
 ```
 
-### 3. Download Entire Series as Individual Chapter PDFs
+### 3. Account Follows, Library Sync & Bookmark Export
+Manage and synchronize your personal reading list directly with your Comix.to account (*requires session cookies*):
+```bash
+# Scan followed titles and download all new/missing chapters
+python comix_downloader.py sync
+python comix_downloader.py --sync
+
+# Check for new releases without downloading (dry run)
+python comix_downloader.py --sync --dry-run
+
+# View all followed / bookmarked titles in your account
+python comix_downloader.py following
+
+# Export bookmarks to MyAnimeList XML format (MAL)
+python comix_downloader.py --export-bookmarks mal
+
+# Export bookmarks to AniList JSON format
+python comix_downloader.py --export-bookmarks anilist
+
+# Export bookmarks to CSV or full JSON backup
+python comix_downloader.py --export-bookmarks csv
+python comix_downloader.py --export-bookmarks json
+```
+
+### 4. Download Entire Series as Individual Chapter PDFs
 ```bash
 python comix_downloader.py <URL_OR_SLUG>
 ```
@@ -134,7 +160,7 @@ python comix_downloader.py <URL_OR_SLUG>
 python comix_downloader.py https://comix.to/title/<title-id-or-slug>
 ```
 
-### 4. Download Specific Chapters or From a Chapter Onwards
+### 5. Download Specific Chapters or From a Chapter Onwards
 ```bash
 # Download only chapters 1 to 5
 python comix_downloader.py <URL_OR_SLUG> -c 1-5
@@ -149,12 +175,12 @@ python comix_downloader.py <URL_OR_SLUG> -c 10+
 python comix_downloader.py https://comix.to/title/<slug>/<chapterId>-chapter-10 --from-here
 ```
 
-### 5. Merge All Chapters into a Single Volume PDF
+### 6. Merge All Chapters into a Single Volume PDF
 ```bash
 python comix_downloader.py <URL_OR_SLUG> --merge
 ```
 
-### 6. Inspect and Filter Scanlation Groups
+### 7. Inspect and Filter Scanlation Groups
 ```bash
 # List all scanlation groups that contributed to the series
 python comix_downloader.py <URL_OR_SLUG> --list-groups
@@ -163,7 +189,7 @@ python comix_downloader.py <URL_OR_SLUG> --list-groups
 python comix_downloader.py <URL_OR_SLUG> -g "<GroupName>"
 ```
 
-### 7. Custom Output Directory & High Concurrency
+### 8. Custom Output Directory & High Concurrency
 ```bash
 python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 ```
@@ -174,8 +200,11 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 
 | Option | Short | Description | Default |
 |---|---|---|---|
-| `target` | | Comic URL / slug, or `search` / `trending` command | *Required* |
-| `search_query` | | Search keyword (when using `search <query>`) | `None` |
+| `target` | | Comic URL / slug, or `search` / `trending` / `sync` / `following` | *Required* |
+| `search_query` | | Search keyword or export format | `None` |
+| `--sync` | | Check reading list and download new/missing chapters | `False` |
+| `--dry-run` | | When syncing, inspect new chapters without downloading | `False` |
+| `--export-bookmarks`| | Export reading list (`mal`, `anilist`, `csv`, `json`) | `mal` |
 | `--trending` | | Browse trending titles (flag alternative to `trending`) | `False` |
 | `--days` | | Time window for trending titles in days (`1`, `7`, `30`) | `1` |
 | `--trend-type` | | Trending discovery mode (`trending`, `follows`) | `trending` |

@@ -17,3 +17,6 @@ venv/
 
 # Node
 node_modules/
+
+# Exports & Backups
+comix_bookmarks_*

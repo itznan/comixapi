@@ -103,6 +103,9 @@ function createAxiosSandbox(securePath, cfgToken, mangaId, chapterId, urlPath) {
   } else if (urlPath && urlPath.startsWith('/collections')) {
     pageUrl = 'https://comix.to/collections';
     pagePath = '/collections';
+  } else if (urlPath && urlPath.startsWith('/user')) {
+    pageUrl = 'https://comix.to/user/bookmark';
+    pagePath = '/user/bookmark';
   }
 
   const mockLocation = createRecursiveProxy('location', {
