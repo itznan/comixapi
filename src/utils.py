@@ -77,7 +77,7 @@ def parse_chapter_spec(spec: str) -> set:
     return result
 
 
-def print_manga_table(items: list):
+def print_manga_table(items: list, title: str = "🔍 Comix.to Search Results"):
     """Format and display manga list in a beautiful terminal table."""
     if not items:
         print("[!] No titles found.")
@@ -90,7 +90,7 @@ def print_manga_table(items: list):
 
         console = Console()
         table = Table(
-            title="🔍 Comix.to Search Results",
+            title=title,
             box=box.ROUNDED,
             header_style="bold cyan",
             show_lines=False

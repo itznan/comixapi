@@ -7,6 +7,7 @@ A high-performance Python tool to download manga, manhwa, or comic series from *
 ## Features
 
 - **Interactive In-CLI Search**: Search Comix.to directly from your terminal (`search <query>`) with interactive number selection to download immediately without opening a browser.
+- **Trending & "Top" Discovery**: Discover daily, weekly, or monthly trending (`trending`) and most followed (`--trend-type follows`) comics with instant download prompts.
 - **Advanced Filtering & Sorting**: Filter searches by comic type (`--type manhwa, manga, manhua`), status (`--status releasing, finished, on_hiatus`), and sort order (`--sort views_7d:desc, chapter_updated_at:desc, rated_score:desc`).
 - **Direct Chapter URL & Resume**: Pass any title URL or a direct chapter URL (e.g. `https://comix.to/title/<slug>/<chapterId>-chapter-10`) with optional `--from-here` to download starting from that chapter onwards.
 - **Scanlation Group Discovery**: Use `--list-groups` to inspect all scanlation groups that contributed to a title before downloading.
@@ -105,7 +106,26 @@ python comix_downloader.py search "Solo Leveling" -c 1-5 --merge
 python comix_downloader.py search "Solo Leveling" --limit 5 --no-interactive
 ```
 
-### 2. Download Entire Series as Individual Chapter PDFs
+### 2. Trending & "Top" Discovery
+Show or download the most popular manga / manhwa of the day, week, or month:
+```bash
+# Discover top trending titles today
+python comix_downloader.py trending --limit 10
+
+# Discover top trending titles over the past 7 days
+python comix_downloader.py trending --days 7 --limit 10
+
+# Discover most followed titles
+python comix_downloader.py trending --trend-type follows --days 7
+
+# Trending with specific download options (e.g. merge chapters 1-5)
+python comix_downloader.py trending -c 1-5 --merge
+
+# Non-interactive script output
+python comix_downloader.py trending --days 1 --no-interactive
+```
+
+### 3. Download Entire Series as Individual Chapter PDFs
 ```bash
 python comix_downloader.py <URL_OR_SLUG>
 ```
@@ -114,7 +134,7 @@ python comix_downloader.py <URL_OR_SLUG>
 python comix_downloader.py https://comix.to/title/<title-id-or-slug>
 ```
 
-### 3. Download Specific Chapters or From a Chapter Onwards
+### 4. Download Specific Chapters or From a Chapter Onwards
 ```bash
 # Download only chapters 1 to 5
 python comix_downloader.py <URL_OR_SLUG> -c 1-5
@@ -129,12 +149,12 @@ python comix_downloader.py <URL_OR_SLUG> -c 10+
 python comix_downloader.py https://comix.to/title/<slug>/<chapterId>-chapter-10 --from-here
 ```
 
-### 4. Merge All Chapters into a Single Volume PDF
+### 5. Merge All Chapters into a Single Volume PDF
 ```bash
 python comix_downloader.py <URL_OR_SLUG> --merge
 ```
 
-### 5. Inspect and Filter Scanlation Groups
+### 6. Inspect and Filter Scanlation Groups
 ```bash
 # List all scanlation groups that contributed to the series
 python comix_downloader.py <URL_OR_SLUG> --list-groups
@@ -143,7 +163,7 @@ python comix_downloader.py <URL_OR_SLUG> --list-groups
 python comix_downloader.py <URL_OR_SLUG> -g "<GroupName>"
 ```
 
-### 6. Custom Output Directory & High Concurrency
+### 7. Custom Output Directory & High Concurrency
 ```bash
 python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 ```
@@ -154,15 +174,18 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 
 | Option | Short | Description | Default |
 |---|---|---|---|
-| `target` | | Comic URL / slug, or `search` command | *Required* |
+| `target` | | Comic URL / slug, or `search` / `trending` command | *Required* |
 | `search_query` | | Search keyword (when using `search <query>`) | `None` |
+| `--trending` | | Browse trending titles (flag alternative to `trending`) | `False` |
+| `--days` | | Time window for trending titles in days (`1`, `7`, `30`) | `1` |
+| `--trend-type` | | Trending discovery mode (`trending`, `follows`) | `trending` |
 | `--type` | | Filter search by comic type (`manga`, `manhwa`, `manhua`, `other`) | `None` |
 | `--status` | | Filter search by status (`releasing`, `finished`, `on_hiatus`, `discontinued`) | `None` |
 | `--genre`, `--genres` | | Filter search by genre (`action`, `fantasy`, `romance`, `comedy`, etc.) | `None` |
 | `--demographic`, `--demographics` | | Filter search by demographic (`shounen`, `seinen`, `shoujo`, `josei`) | `None` |
 | `--sort` | | Sort search order (`views_7d:desc`, `chapter_updated_at:desc`, `score:desc`) | Relevance |
-| `--limit` | | Maximum number of search results to display | `10` |
-| `--no-interactive`| | Print search results table without download prompt | `False` |
+| `--limit` | | Maximum number of search/trending results to display | `10` |
+| `--no-interactive`| | Print search/trending results table without download prompt | `False` |
 | `--list-groups` | | Display all scanlation groups that translated the title | `False` |
 | `--from-here` | | When passing a direct chapter URL, download from that chapter onwards | `False` |
 | `--output` | `-o` | Output directory to store downloaded PDFs | `./downloads/{Title}` |

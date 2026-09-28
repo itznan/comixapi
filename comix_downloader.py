@@ -28,6 +28,11 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Discover trending / top manhwa and manga
+  python comix_downloader.py trending --limit 10
+  python comix_downloader.py trending --days 7 --limit 10
+  python comix_downloader.py trending --trend-type follows --days 7
+
   # Search Comix.to and pick interactively to download
   python comix_downloader.py search "Solo Leveling"
   python comix_downloader.py search "Leveling" --type manhwa --status finished --sort views_7d:desc
@@ -45,18 +50,21 @@ Examples:
   python comix_downloader.py https://comix.to/title/<slug> --list-groups
         """
     )
-    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search' command")
+    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search' / 'trending' command")
     parser.add_argument("search_query", nargs="?", default=None, help="Search query when using 'search' command")
 
     # Search & Discovery options
     parser.add_argument("-s", "--search", dest="search_flag", help="Search keyword (alternative to 'search <query>')")
+    parser.add_argument("--trending", dest="trending_flag", action="store_true", help="Browse trending titles (alternative to 'trending' command)")
+    parser.add_argument("--days", type=int, choices=[1, 7, 30], default=1, help="Time window for trending/top titles in days: 1, 7, or 30 (default: 1)")
+    parser.add_argument("--trend-type", choices=["trending", "follows"], default="trending", help="Trending discovery mode: 'trending' or 'follows' (default: 'trending')")
     parser.add_argument("--type", help="Filter search by comic type (manga, manhwa, manhua, other)")
     parser.add_argument("--status", help="Filter search by status (releasing, finished, on_hiatus, discontinued)")
     parser.add_argument("--genre", "--genres", dest="genres", help="Filter by genre(s), e.g. 'Action', 'fantasy', or 'action,adventure'")
     parser.add_argument("--demographic", "--demographics", dest="demographics", help="Filter by demographic(s), e.g. 'shounen', 'seinen', 'shoujo', 'josei'")
     parser.add_argument("--sort", help="Sort order (e.g. 'views_7d:desc', 'chapter_updated_at:desc', 'score:desc')")
-    parser.add_argument("--limit", type=int, default=10, help="Number of search results to return (default: 10)")
-    parser.add_argument("--no-interactive", action="store_true", help="Print search results without interactive prompt")
+    parser.add_argument("--limit", type=int, default=10, help="Number of search/trending results to return (default: 10)")
+    parser.add_argument("--no-interactive", action="store_true", help="Print results without interactive prompt")
 
     # Chapter & Group filtering
     parser.add_argument("-o", "--output", help="Directory to save downloaded PDFs (default: ./downloads/{Title})")
@@ -75,6 +83,33 @@ Examples:
     parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after PDF creation")
 
     args = parser.parse_args()
+
+    # Route: Trending / Top command or flag
+    is_trending_cmd = (args.target and args.target.lower() in ("trending", "top")) or bool(args.trending_flag)
+    if is_trending_cmd:
+        trend_mode = args.trend_type
+        if args.type and args.type.lower() in ("trending", "follows"):
+            trend_mode = args.type.lower()
+
+        ComixDownloader.trending(
+            trend_type=trend_mode,
+            days=args.days,
+            limit=args.limit,
+            interactive=not args.no_interactive,
+            cookie_file=args.cookies,
+            downloader_options={
+                "output_dir": args.output,
+                "concurrency": args.threads,
+                "preferred_group": args.group,
+                "lang": args.lang,
+                "merge_all": args.merge,
+                "keep_images": args.keep_images,
+                "use_aria2": args.use_aria2,
+                "from_here": args.from_here,
+                "chapter_range": args.chapters
+            }
+        )
+        return
 
     # Route: Search command or search flag
     is_search_cmd = (args.target and args.target.lower() == "search") or bool(args.search_flag)
