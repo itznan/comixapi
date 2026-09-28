@@ -1,0 +1,19 @@
+# Downloaded content
+downloads/
+.cache/
+
+# Sensitive credentials
+*.cookies.txt
+*_cookies.txt
+*cookies*.txt
+cookies.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env
+
+# Node
+node_modules/
