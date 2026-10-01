@@ -5,14 +5,15 @@ Core Comix.to download orchestration: chapter filtering, deduplication, PDF crea
 from pathlib import Path
 from ..api import ComixAPI
 from ..cookies import find_default_cookies, parse_cookie_file
-from ..utils import sanitize_filename, parse_chapter_spec
+from ..utils import sanitize_filename, parse_chapter_spec, print_groups_table
 from ..pdf import build_pdf_from_urls, merge_pdf_files
 from ..metadata import save_comic_info_xml, download_cover
 from .interactive import InteractiveSearchMixin
 from .sync import SyncMixin
+from .collections import CollectionDownloaderMixin
 
 
-class ComixDownloader(InteractiveSearchMixin, SyncMixin):
+class ComixDownloader(InteractiveSearchMixin, SyncMixin, CollectionDownloaderMixin):
     """Orchestrates chapter discovery, image downloading, and PDF compilation for Comix.to."""
 
     def __init__(self, target_url: str = "", output_dir: str = None,
@@ -267,20 +268,13 @@ class ComixDownloader(InteractiveSearchMixin, SyncMixin):
         finally:
             self.api.close()
 
-    def list_groups(self):
+    def list_groups(self) -> list:
         """Display all scanlation groups that contributed to this title."""
         try:
             self.api.bootstrap()
             groups = self.api.get_manga_groups()
-            if not groups:
-                print(f"[*] No specific group metadata found for {self.api.manga_title}.")
-                return
-            print(f"\n[*] Available scanlation groups for '{self.api.manga_title}':")
-            for g in groups:
-                name = g.get("name") or g.get("title") or "Unknown"
-                gid = g.get("id")
-                slug = g.get("slug", "")
-                print(f"  • {name} (ID: {gid}, Slug: {slug})")
-            print(f"\nTip: Download with a specific group using: -g \"{groups[0].get('name')}\"\n")
+            title = self.api.manga_title or self.api.manga_slug or "Manga"
+            print_groups_table(groups, manga_title=title)
+            return groups
         finally:
             self.api.close()

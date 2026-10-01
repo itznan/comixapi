@@ -162,3 +162,53 @@ def print_manga_table(items: list, title: str = "🔍 Comix.to Search Results"):
             print(f"{i:<4} {title_text:<28} {m_id:<8} {m_type:<8} {status:<10} {rating:<7} {latest_ch:<10}")
         print("=" * len(header) + "\n")
 
+
+def print_groups_table(groups: list, manga_title: str = "Manga"):
+    """Format and display available scanlation groups in a clean terminal table."""
+    if not groups:
+        print(f"[*] No specific scanlation group metadata found for '{manga_title}'.")
+        return
+
+    try:
+        from rich.console import Console
+        from rich.table import Table
+        from rich import box
+
+        console = Console()
+        table = Table(
+            title=f"👥 Available Scanlation Groups for '{manga_title}'",
+            box=box.ROUNDED,
+            header_style="bold cyan",
+            show_lines=False
+        )
+        table.add_column("#", style="dim", width=4, justify="right")
+        table.add_column("Scanlation Group", style="bold white", min_width=20, max_width=40)
+        table.add_column("Group ID", style="cyan", width=10, justify="right")
+        table.add_column("Slug", style="dim", min_width=15, max_width=30)
+
+        for i, g in enumerate(groups, 1):
+            name = g.get("name") or g.get("title") or "Unknown"
+            gid = str(g.get("id") or "-")
+            slug = str(g.get("slug") or "-")
+            table.add_row(str(i), name, gid, slug)
+
+        console.print(table)
+    except Exception:
+        header = f"{'#':<4} {'Scanlation Group':<30} {'Group ID':<10} {'Slug':<25}"
+        print(f"\n[*] Available scanlation groups for '{manga_title}':")
+        print("=" * len(header))
+        print(header)
+        print("-" * len(header))
+        for i, g in enumerate(groups, 1):
+            name = (g.get("name") or g.get("title") or "Unknown")[:28]
+            gid = str(g.get("id") or "-")[:9]
+            slug = str(g.get("slug") or "-")[:24]
+            print(f"{i:<4} {name:<30} {gid:<10} {slug:<25}")
+        print("=" * len(header) + "\n")
+
+    first_name = groups[0].get("name") or groups[0].get("title") or ""
+    first_id = groups[0].get("id") or ""
+    if first_name:
+        print(f"💡 Tip: Download with this group using: -g \"{first_name}\" (or -g {first_id})\n")
+
+

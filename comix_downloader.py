@@ -63,17 +63,25 @@ Examples:
   # Download starting from a specific chapter URL onwards
   python comix_downloader.py https://comix.to/title/<slug>/<chapterId>-chapter-10 --from-here
 
+  # Download curated collections and reading lists
+  python comix_downloader.py collection <collection-id-or-url>
+  python comix_downloader.py collection 123 --dry-run
+
   # List all scanlation groups for a title
+  python comix_downloader.py groups <title-slug-or-url>
   python comix_downloader.py https://comix.to/title/<slug> --list-groups
         """
     )
-    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'sync', 'export', 'following' command")
-    parser.add_argument("search_query", nargs="*", default=[], help="Search query or format when using commands")
+    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'collection', 'groups', 'sync', 'export', 'following' command")
+    parser.add_argument("search_query", nargs="*", default=[], help="Search query, collection target, or format when using commands")
+
+    # Curated Collections options
+    parser.add_argument("--collection", dest="collection_flag", help="Curated collection URL or ID to batch download")
 
     # Account & Library options
     parser.add_argument("--sync", dest="sync_flag", action="store_true", help="Sync reading list: check followed titles and download new/missing chapters")
     parser.add_argument("--export-bookmarks", dest="export_bookmarks", nargs="?", const="mal", help="Export Comix.to bookmarks to MAL, AniList, CSV, or JSON (default: mal)")
-    parser.add_argument("--dry-run", action="store_true", help="When syncing, check for new chapters without actually downloading")
+    parser.add_argument("--dry-run", action="store_true", help="When syncing or downloading collections, preview items without actually downloading")
 
     # Search & Discovery options
     parser.add_argument("-s", "--search", dest="search_flag", help="Search keyword (alternative to 'search <query>')")
@@ -208,6 +216,50 @@ Examples:
             interactive=not args.no_interactive,
             cookie_file=args.cookies,
             downloader_options=opts
+        )
+        return
+
+    # Route: List groups command
+    is_groups_cmd = (args.target and args.target.lower() in ("groups", "list-groups"))
+    if is_groups_cmd:
+        target_manga = args.search_query[0] if (isinstance(args.search_query, list) and args.search_query) else (args.search_query or "")
+        if not target_manga:
+            print("[!] Please provide a manga URL or slug: python comix_downloader.py groups <manga-url-or-slug>")
+            sys.exit(1)
+        downloader = ComixDownloader(
+            target_url=target_manga,
+            cookie_file=args.cookies,
+            **common_downloader_opts
+        )
+        downloader.list_groups()
+        return
+
+    # Route: Curated Collection / Reading List command or URL
+    is_collection_cmd = (
+        (args.target and args.target.lower() in ("collection", "collections"))
+        or bool(args.collection_flag)
+        or (args.target and ("/collection/" in args.target.lower() or "/collections/" in args.target.lower()))
+    )
+    if is_collection_cmd:
+        if args.collection_flag:
+            target_col = args.collection_flag
+        elif args.target and args.target.lower() in ("collection", "collections"):
+            target_col = args.search_query[0] if (isinstance(args.search_query, list) and args.search_query) else (args.search_query or "")
+        else:
+            target_col = args.target
+
+        if not target_col:
+            print("[!] Please provide a collection URL or ID: python comix_downloader.py collection <collection-url-or-id>")
+            sys.exit(1)
+
+        opts = common_downloader_opts.copy()
+        opts["chapter_range"] = args.chapters
+        ComixDownloader.collection(
+            collection_target=target_col,
+            interactive=not args.no_interactive,
+            cookie_file=args.cookies,
+            downloader_options=opts,
+            dry_run=args.dry_run
         )
         return
 

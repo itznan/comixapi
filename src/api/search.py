@@ -196,7 +196,8 @@ class SearchMixin:
 
     def get_manga_groups(self, manga_hid: str = None) -> list:
         """Fetch scanlation groups that contributed to a manga."""
-        hid = manga_hid or self.manga_hid
+        raw_hid = manga_hid or self.manga_hid or ""
+        hid = raw_hid.split("-")[0].strip()
         if not hid:
             return []
         if not self.bridge:

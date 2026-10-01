@@ -14,9 +14,10 @@ from ..bridge import NodeSignerBridge
 from .chapters import ChapterMixin
 from .search import SearchMixin
 from .user import UserMixin
+from .collections import CollectionMixin
 
 
-class ComixAPI(ChapterMixin, SearchMixin, UserMixin):
+class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
     """Client for fetching and decrypting Comix.to metadata and chapters."""
 
     def __init__(self, raw_url_or_slug: str = "", cookie_header: str = ""):

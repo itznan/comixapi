@@ -73,11 +73,13 @@ comixapi/
     │   ├── client.py       # Core HTTP client, CFG token extraction, session bootstrap
     │   ├── chapters.py     # Chapter listing, pagination, and page decryption
     │   ├── search.py       # Title search, trending discovery, and filters
+    │   ├── collections.py  # Curated collections retrieval & pagination
     │   └── user.py         # User library, reading history, and bookmark exports
     └── downloader/         # Download orchestration package
         ├── __init__.py     # Exposes ComixDownloader
         ├── core.py         # Core download pipeline, deduplication, PDF creation
         ├── interactive.py  # Interactive search and trending CLI workflows
+        ├── collections.py  # Curated collections batch downloader
         └── sync.py         # Library sync, tracking, and bookmark export
 ```
 
@@ -195,13 +197,28 @@ python comix_downloader.py <URL_OR_SLUG> --merge
 ### 7. Inspect and Filter Scanlation Groups
 ```bash
 # List all scanlation groups that contributed to the series
+python comix_downloader.py groups <URL_OR_SLUG>
 python comix_downloader.py <URL_OR_SLUG> --list-groups
 
 # Filter chapters by a specific group
 python comix_downloader.py <URL_OR_SLUG> -g "<GroupName>"
 ```
 
-### 8. Custom Output Directory & High Concurrency
+### 8. Download Curated Collections & Reading Lists
+Batch-download every comic in a curated reading list or user collection:
+```bash
+# Download an entire curated collection
+python comix_downloader.py collection <collection-id-or-url>
+python comix_downloader.py collection 123-top-10-dungeon-manhwa
+
+# Preview series in a collection without downloading (Dry Run)
+python comix_downloader.py collection 123 --dry-run
+
+# Download collection with specific chapter options (e.g. only latest chapters)
+python comix_downloader.py collection 123 -c latest
+```
+
+### 9. Custom Output Directory & High Concurrency
 ```bash
 python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 ```
@@ -212,10 +229,11 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 
 | Option | Short | Description | Default |
 |---|---|---|---|
-| `target` | | Comic URL / slug, or `search` / `trending` / `sync` / `following` | *Required* |
-| `search_query` | | Search keyword or export format | `None` |
+| `target` | | Comic URL / slug, or `search` / `trending` / `collection` / `groups` / `sync` / `following` | *Required* |
+| `search_query` | | Search keyword, collection target, or export format | `None` |
+| `--collection` | | Curated collection URL or ID to batch download | `None` |
 | `--sync` | | Check reading list and download new/missing chapters | `False` |
-| `--dry-run` | | When syncing, inspect new chapters without downloading | `False` |
+| `--dry-run` | | When syncing or downloading collections, preview without downloading | `False` |
 | `--export-bookmarks`| | Export reading list (`mal`, `anilist`, `csv`, `json`) | `mal` |
 | `--trending` | | Browse trending titles (flag alternative to `trending`) | `False` |
 | `--days` | | Time window for trending titles in days (`1`, `7`, `30`) | `1` |
