@@ -60,15 +60,25 @@ comixapi/
 ├── comix.to_cookies.txt    # Session cookies for protected titles
 ├── requirements.txt        # Python package dependencies
 │
-└── src/                    # Modular implementation
+└── src/                    # Modular Python package
     ├── __init__.py         # Package exports
-    ├── config.py           # User-Agent, base URLs, constants
+    ├── config.py           # User-Agent, base URLs, genre/demographic mappings
     ├── cookies.py          # Cookie parsing and auto-discovery
-    ├── utils.py            # Sanitization, chapter range parser, progress bar
+    ├── utils.py            # Sanitization, chapter range parser, table formatting
     ├── bridge.py           # Node.js IPC bridge (sign & decrypt)
-    ├── api.py              # Metadata fetching, chapter & page discovery
+    ├── metadata.py         # ComicInfo.xml generation & high-res cover management
     ├── pdf.py              # Parallel image download & PDF compilation
-    └── downloader.py       # High-level download orchestrator
+    ├── api/                # API client & communication package
+    │   ├── __init__.py     # Exposes ComixAPI
+    │   ├── client.py       # Core HTTP client, CFG token extraction, session bootstrap
+    │   ├── chapters.py     # Chapter listing, pagination, and page decryption
+    │   ├── search.py       # Title search, trending discovery, and filters
+    │   └── user.py         # User library, reading history, and bookmark exports
+    └── downloader/         # Download orchestration package
+        ├── __init__.py     # Exposes ComixDownloader
+        ├── core.py         # Core download pipeline, deduplication, PDF creation
+        ├── interactive.py  # Interactive search and trending CLI workflows
+        └── sync.py         # Library sync, tracking, and bookmark export
 ```
 
 ---
