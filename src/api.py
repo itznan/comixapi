@@ -283,22 +283,87 @@ class ComixAPI:
         if keyword and str(keyword).strip():
             params["keyword"] = str(keyword).strip()
 
+        type_aliases = {
+            "manga": "manga",
+            "manhwa": "manhwa",
+            "manhua": "manhua",
+            "korean": "manhwa",
+            "japanese": "manga",
+            "chinese": "manhua",
+            "webtoon": "manhwa",
+            "comic": "other",
+            "other": "other",
+        }
+        status_aliases = {
+            "ongoing": "releasing",
+            "releasing": "releasing",
+            "completed": "finished",
+            "finished": "finished",
+            "hiatus": "on_hiatus",
+            "on_hiatus": "on_hiatus",
+            "dropped": "discontinued",
+            "cancelled": "discontinued",
+            "canceled": "discontinued",
+            "discontinued": "discontinued",
+        }
+        sort_aliases = {
+            "views": ("views_7d", "desc"),
+            "views_7d": ("views_7d", "desc"),
+            "views_30d": ("views_30d", "desc"),
+            "views_total": ("views_total", "desc"),
+            "popular": ("views_7d", "desc"),
+            "trending": ("views_7d", "desc"),
+            "rating": ("score", "desc"),
+            "score": ("score", "desc"),
+            "rated": ("score", "desc"),
+            "latest": ("chapter_updated_at", "desc"),
+            "updated": ("chapter_updated_at", "desc"),
+            "chapter_updated_at": ("chapter_updated_at", "desc"),
+            "created": ("created_at", "desc"),
+            "created_at": ("created_at", "desc"),
+            "newest": ("created_at", "desc"),
+            "oldest": ("created_at", "asc"),
+            "title": ("title", "asc"),
+            "name": ("title", "asc"),
+            "az": ("title", "asc"),
+            "za": ("title", "desc"),
+            "follows": ("follows_total", "desc"),
+            "bookmarks": ("follows_total", "desc"),
+        }
+
         if manga_type:
-            if isinstance(manga_type, str):
-                params["types"] = [t.strip().lower() for t in manga_type.split(",") if t.strip()]
-            else:
-                params["types"] = manga_type
+            raw_types = [manga_type] if isinstance(manga_type, str) else manga_type
+            resolved_types = []
+            for t in raw_types:
+                for sub_t in str(t).split(","):
+                    clean_t = sub_t.strip().lower()
+                    if clean_t:
+                        resolved_types.append(type_aliases.get(clean_t, clean_t))
+            if resolved_types:
+                params["types"] = resolved_types
 
         if status:
-            if isinstance(status, str):
-                params["statuses"] = [s.strip().lower() for s in status.split(",") if s.strip()]
-            else:
-                params["statuses"] = status
+            raw_statuses = [status] if isinstance(status, str) else status
+            resolved_statuses = []
+            for s in raw_statuses:
+                for sub_s in str(s).split(","):
+                    clean_s = sub_s.strip().lower()
+                    if clean_s:
+                        resolved_statuses.append(status_aliases.get(clean_s, clean_s))
+            if resolved_statuses:
+                params["statuses"] = resolved_statuses
 
         if sort:
-            sort_val = str(sort).strip()
+            sort_val = str(sort).strip().lower()
             if ":" in sort_val:
                 col, direction = sort_val.split(":", 1)
+                col = col.strip()
+                direction = direction.strip()
+                if col in sort_aliases:
+                    col = sort_aliases[col][0]
+                params["order"] = {col: direction}
+            elif sort_val in sort_aliases:
+                col, direction = sort_aliases[sort_val]
                 params["order"] = {col: direction}
             else:
                 params["order"] = {sort_val: "desc"}

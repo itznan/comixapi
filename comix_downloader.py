@@ -16,6 +16,16 @@ import sys
 import argparse
 from pathlib import Path
 
+# Force UTF-8 on Windows stdout/stderr if possible
+if sys.platform == "win32":
+    try:
+        if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -58,7 +68,7 @@ Examples:
         """
     )
     parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'sync', 'export', 'following' command")
-    parser.add_argument("search_query", nargs="?", default=None, help="Search query or format when using commands")
+    parser.add_argument("search_query", nargs="*", default=[], help="Search query or format when using commands")
 
     # Account & Library options
     parser.add_argument("--sync", dest="sync_flag", action="store_true", help="Sync reading list: check followed titles and download new/missing chapters")
@@ -80,7 +90,7 @@ Examples:
 
     # Chapter & Group filtering
     parser.add_argument("-o", "--output", help="Directory to save downloaded PDFs (default: ./downloads/{Title})")
-    parser.add_argument("-c", "--chapters", default="all", help="Chapters to download (e.g. '1-5', '1,3,5-10', '20+', or 'all')")
+    parser.add_argument("-c", "--chapters", default=None, help="Chapters to download (e.g. '1-5', '1,3,5-10', 'latest', '20+', or 'all')")
     parser.add_argument("-g", "--group", help="Filter by scanlation group name or ID (e.g. 'OmegaScans')")
     parser.add_argument("-l", "--lang", default="en", help="Language filter (default: 'en')")
     parser.add_argument("--list-groups", action="store_true", help="List all available scanlation groups for the title")
@@ -117,7 +127,8 @@ Examples:
     # Route: Export bookmarks command or flag
     is_export_cmd = (args.target and args.target.lower() in ("export", "export-bookmarks")) or bool(args.export_bookmarks)
     if is_export_cmd:
-        fmt = args.export_bookmarks if args.export_bookmarks else (args.search_query or "mal")
+        fmt_arg = args.search_query[0] if (isinstance(args.search_query, list) and args.search_query) else (args.search_query or "mal")
+        fmt = args.export_bookmarks if args.export_bookmarks else fmt_arg
         ComixDownloader.export_bookmarks(
             format_type=fmt,
             output_file=args.output,
@@ -174,7 +185,13 @@ Examples:
     # Route: Search command or search flag
     is_search_cmd = (args.target and args.target.lower() == "search") or bool(args.search_flag)
     if is_search_cmd:
-        keyword = args.search_flag if args.search_flag else (args.search_query or "")
+        if args.search_flag:
+            keyword = args.search_flag
+        elif isinstance(args.search_query, list):
+            keyword = " ".join(args.search_query).strip()
+        else:
+            keyword = (args.search_query or "").strip()
+
         has_filters = bool(args.type or args.status or args.genres or args.demographics or args.sort)
         if not keyword and not has_filters:
             print("[!] Please provide a search query or filter: python comix_downloader.py search \"<keyword>\"")
@@ -221,7 +238,7 @@ Examples:
         if args.list_groups:
             downloader.list_groups()
         else:
-            downloader.run(chapter_range=args.chapters)
+            downloader.run(chapter_range=args.chapters or "all")
         return
 
     # No arguments provided

@@ -37,6 +37,7 @@ GENRE_MAP = {
     "romance": 23,
     "sci-fi": 24,
     "scifi": 24,
+    "sci fi": 24,
     "slice-of-life": 25,
     "slice of life": 25,
     "smut": 87268,
@@ -45,11 +46,15 @@ GENRE_MAP = {
     "thriller": 28,
     "tragedy": 29,
     "wuxia": 30,
+    "martial arts": 30,
+    "martial-arts": 30,
 }
 
 DEMOGRAPHIC_MAP = {
     "shoujo": 1,
+    "shojo": 1,
     "shounen": 2,
+    "shonen": 2,
     "josei": 3,
     "seinen": 4,
 }

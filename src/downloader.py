@@ -84,9 +84,15 @@ class ComixDownloader:
             else:
                 print(f"[!] Warning: Target chapter ID {target_id_str} not found in chapter list.")
 
-        if chapter_range_spec and chapter_range_spec.lower() != "all":
-            selected_numbers = parse_chapter_spec(chapter_range_spec)
-            deduped = [c for c in deduped if c.get("number") in selected_numbers]
+        if chapter_range_spec and str(chapter_range_spec).strip().lower() != "all":
+            spec_lower = str(chapter_range_spec).strip().lower()
+            if spec_lower in ("latest", "last"):
+                if deduped:
+                    deduped = [deduped[-1]]
+                    print(f"[*] Downloading latest Chapter {deduped[0].get('number')} only.")
+            else:
+                selected_numbers = parse_chapter_spec(chapter_range_spec)
+                deduped = [c for c in deduped if c.get("number") in selected_numbers]
 
         return deduped
 
@@ -227,7 +233,14 @@ class ComixDownloader:
 
                     opts = downloader_options.copy() if downloader_options else {}
                     opts["cookie_file"] = c_file
-                    chapter_range = opts.pop("chapter_range", "all")
+                    chapter_range = opts.pop("chapter_range", None)
+                    if not chapter_range:
+                        ch_choice = input("\n[?] Enter chapters to download (e.g. 'all', '1-5', 'latest', '10+') [default: all]: ").strip()
+                        if ch_choice.lower() in ("q", "quit", "cancel"):
+                            print("[*] Cancelled.")
+                            return None
+                        chapter_range = ch_choice if ch_choice else "all"
+
                     downloader = cls(target_url=title_url, **opts)
                     downloader.run(chapter_range=chapter_range)
                     return downloader
@@ -298,7 +311,14 @@ class ComixDownloader:
 
                     opts = downloader_options.copy() if downloader_options else {}
                     opts["cookie_file"] = c_file
-                    chapter_range = opts.pop("chapter_range", "all")
+                    chapter_range = opts.pop("chapter_range", None)
+                    if not chapter_range:
+                        ch_choice = input("\n[?] Enter chapters to download (e.g. 'all', '1-5', 'latest', '10+') [default: all]: ").strip()
+                        if ch_choice.lower() in ("q", "quit", "cancel"):
+                            print("[*] Cancelled.")
+                            return None
+                        chapter_range = ch_choice if ch_choice else "all"
+
                     downloader = cls(target_url=title_url, **opts)
                     downloader.run(chapter_range=chapter_range)
                     return downloader
@@ -353,7 +373,14 @@ class ComixDownloader:
 
                     opts = downloader_options.copy() if downloader_options else {}
                     opts["cookie_file"] = c_file
-                    chapter_range = opts.pop("chapter_range", "all")
+                    chapter_range = opts.pop("chapter_range", None)
+                    if not chapter_range:
+                        ch_choice = input("\n[?] Enter chapters to download (e.g. 'all', '1-5', 'latest', '10+') [default: all]: ").strip()
+                        if ch_choice.lower() in ("q", "quit", "cancel"):
+                            print("[*] Cancelled.")
+                            return None
+                        chapter_range = ch_choice if ch_choice else "all"
+
                     downloader = cls(target_url=title_url, **opts)
                     downloader.run(chapter_range=chapter_range)
                     return downloader
