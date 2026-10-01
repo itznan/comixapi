@@ -108,21 +108,35 @@ Examples:
     parser.add_argument("--list-groups", action="store_true", help="List all available scanlation groups for the title")
     parser.add_argument("--from-here", action="store_true", help="When a chapter URL is provided, download all chapters from that chapter onwards")
 
+    # Format and Output options
+    parser.add_argument("--format", dest="export_format", choices=["pdf", "cbz", "epub", "both"], default="pdf", help="Document output format: 'pdf', 'cbz', 'epub', or 'both' (default: pdf)")
+    parser.add_argument("--cbz", dest="cbz_flag", action="store_true", help="Download as CBZ comic archive (.cbz) instead of PDF")
+    parser.add_argument("--epub", dest="epub_flag", action="store_true", help="Download as EPUB digital book (.epub) instead of PDF")
+
     # Downloader options
-    parser.add_argument("-m", "--merge", action="store_true", help="Merge all downloaded chapters into a single complete volume PDF")
+    parser.add_argument("-m", "--merge", action="store_true", help="Merge all downloaded chapters into a single complete volume file")
     parser.add_argument("--cookies", help="Path to Netscape or key=value cookies file (default: comix.to_cookies.txt)")
     parser.add_argument("-t", "--threads", type=int, default=8, help="Number of concurrent image download threads (default: 8)")
     parser.add_argument("--aria2", dest="use_aria2", action="store_true", default=None, help="Force use aria2c for accelerated downloading")
     parser.add_argument("--no-aria2", dest="use_aria2", action="store_false", help="Disable aria2c and use standard Python threads")
-    parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after PDF creation")
+    parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after archive creation")
 
     # Cover & Metadata options
-    parser.add_argument("--cover", dest="include_cover", action="store_true", default=True, help="Download official cover art as cover.jpg and embed in PDF (default: True)")
+    parser.add_argument("--cover", dest="include_cover", action="store_true", default=True, help="Download official cover art as cover.jpg and embed in PDF/CBZ (default: True)")
     parser.add_argument("--no-cover", dest="include_cover", action="store_false", help="Disable downloading and embedding cover art")
-    parser.add_argument("--cover-first", action="store_true", help="Insert cover art as the first page of every chapter PDF")
+    parser.add_argument("--cover-first", action="store_true", help="Insert cover art as the first page of every chapter document")
     parser.add_argument("--no-comicinfo", dest="generate_comicinfo", action="store_false", default=True, help="Disable generating ComicInfo.xml metadata file")
 
     args = parser.parse_args()
+
+    # Determine export format
+    selected_format = "pdf"
+    if args.cbz_flag:
+        selected_format = "cbz"
+    elif args.epub_flag:
+        selected_format = "epub"
+    elif args.export_format:
+        selected_format = args.export_format.lower()
 
     common_downloader_opts = {
         "output_dir": args.output,
@@ -135,6 +149,7 @@ Examples:
         "include_cover": args.include_cover,
         "cover_first": args.cover_first,
         "generate_comicinfo": args.generate_comicinfo,
+        "export_format": selected_format,
     }
 
     # Route: Sync library command or flag

@@ -202,12 +202,35 @@ python comix_downloader.py <URL_OR_SLUG> -c 10+
 python comix_downloader.py https://comix.to/title/<slug>/<chapterId>-chapter-10 --from-here
 ```
 
-### 6. Merge All Chapters into a Single Volume PDF
+### 6. Alternative Export Formats: CBZ & EPUB
+Save chapters as ultra-fast comic archives (`.cbz`) or digital books (`.epub`) with embedded cover art and `ComicInfo.xml` metadata:
 ```bash
-python comix_downloader.py <URL_OR_SLUG> --merge
+# Download series as CBZ comic archives (Mihon / Tachiyomi / Komga / Kavita compatible)
+python comix_downloader.py <URL_OR_SLUG> --cbz
+
+# Download specific chapters as CBZ
+python comix_downloader.py <URL_OR_SLUG> -c 1-5 --cbz
+
+# Merge all chapters into a single complete volume CBZ
+python comix_downloader.py <URL_OR_SLUG> --cbz --merge
+
+# Download as EPUB format
+python comix_downloader.py <URL_OR_SLUG> --epub
+
+# Download both PDF and CBZ formats simultaneously
+python comix_downloader.py <URL_OR_SLUG> --format both
 ```
 
-### 7. Inspect and Filter Scanlation Groups
+### 7. Merge All Chapters into a Single Volume
+```bash
+# Merge chapters into a single complete volume PDF
+python comix_downloader.py <URL_OR_SLUG> --merge
+
+# Merge chapters into a single complete volume CBZ
+python comix_downloader.py <URL_OR_SLUG> --cbz --merge
+```
+
+### 8. Inspect and Filter Scanlation Groups
 ```bash
 # List all scanlation groups that contributed to the series
 python comix_downloader.py groups <URL_OR_SLUG>
@@ -217,7 +240,7 @@ python comix_downloader.py <URL_OR_SLUG> --list-groups
 python comix_downloader.py <URL_OR_SLUG> -g "<GroupName>"
 ```
 
-### 8. Download Curated Collections & Reading Lists
+### 9. Download Curated Collections & Reading Lists
 Batch-download every comic in a curated reading list or user collection:
 ```bash
 # Download an entire curated collection
@@ -231,7 +254,7 @@ python comix_downloader.py collection 123 --dry-run
 python comix_downloader.py collection 123 -c latest
 ```
 
-### 9. Custom Output Directory & High Concurrency
+### 10. Custom Output Directory & High Concurrency
 ```bash
 python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 ```
@@ -244,6 +267,9 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 |---|---|---|---|
 | `target` | | Comic URL / slug, or `search` / `trending` / `collection` / `groups` / `sync` / `following` / `history` | *Required* |
 | `search_query` | | Search keyword, collection target, or export format | `None` |
+| `--format` | | Document format (`pdf`, `cbz`, `epub`, `both`) | `pdf` |
+| `--cbz` | | Shortcut to export chapters as `.cbz` comic archives | `False` |
+| `--epub` | | Shortcut to export chapters as `.epub` digital books | `False` |
 | `--collection` | | Curated collection URL or ID to batch download | `None` |
 | `--sync` | | Check reading list and download new/missing chapters | `False` |
 | `--unread-only` | | When syncing reading list, only download unread chapters | `False` |
@@ -264,18 +290,18 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 | `--no-interactive`| | Print search/trending results table without download prompt | `False` |
 | `--list-groups` | | Display all scanlation groups that translated the title | `False` |
 | `--from-here` | | When passing a direct chapter URL, download from that chapter onwards | `False` |
-| `--output` | `-o` | Output directory to store downloaded PDFs | `./downloads/{Title}` |
+| `--output` | `-o` | Output directory to store downloaded files | `./downloads/{Title}` |
 | `--chapters` | `-c` | Chapters to download (`all`, `1-5`, `1,3,5`, `10+`) | `all` |
-| `--merge` | `-m` | Merge all downloaded chapters into one combined PDF | `False` |
+| `--merge` | `-m` | Merge all downloaded chapters into one combined PDF or CBZ | `False` |
 | `--group` | `-g` | Filter by scanlation group name or ID | Best per chapter |
 | `--lang` | `-l` | Filter chapters by language | `en` |
 | `--threads` | `-t` | Number of concurrent image download threads | `8` |
 | `--aria2` | | Force use aria2c for accelerated multi-connection downloading | Auto-detected |
 | `--no-aria2` | | Disable aria2c and use standard Python threads | `False` |
 | `--cookies` | | Path to cookie file | Auto-discovered |
-| `--keep-images` | | Keep raw downloaded image files after PDF creation | `False` |
-| `--cover` | | Download high-res cover poster and embed in PDF | `True` |
+| `--keep-images` | | Keep raw downloaded image files after compilation | `False` |
+| `--cover` | | Download high-res cover poster and embed in PDF/CBZ | `True` |
 | `--no-cover` | | Disable downloading and embedding cover art | `False` |
-| `--cover-first` | | Insert cover art as the first page of every chapter PDF | `False` |
+| `--cover-first` | | Insert cover art as the first page of every chapter document | `False` |
 | `--no-comicinfo` | | Disable generating ComicInfo.xml metadata file | `False` |
 
