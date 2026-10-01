@@ -8,11 +8,15 @@ A curated roadmap of high-value, legitimate features, architecture enhancements,
 
 ### ✅ Completed & Shipped
 - [x] **Client Security & Dynamic VM Emulation**: Embedded Node.js IPC bridge (`comix_signer.js`) for signature generation and response decryption.
-- [x] **Single-Link & Chapter PDF Downloader**: Resilient multithreaded image downloader with `aria2c` acceleration and automatic deduplication.
+- [x] **Single-Link & Chapter Downloader**: Resilient multithreaded image downloader with `aria2c` acceleration and automatic deduplication.
+- [x] **Multi-Format Export (PDF, CBZ, EPUB)**: Support for PDF compilation, raw archive `.cbz` packaging, and standard `.epub` generation with embedded `ComicInfo.xml` and cover art.
 - [x] **In-CLI Search & Filtering (`GET /api/v1/manga`)**: Full search by keyword, comic type (`manga`, `manhwa`, `manhua`), status, genres, demographics, and sorting with interactive CLI selection.
 - [x] **Trending & Top Discovery (`GET /api/v1/manga/top`)**: Daily, weekly, and monthly trending and most-followed comic discovery with interactive download prompts.
+- [x] **Curated Community Collections (`/collections`)**: Browse and batch-download curated community reading lists and staff picks.
 - [x] **Account Library Sync (`GET /api/v1/user/following-titles`)**: Synchronizes your personal Comix.to reading list and downloads newly released or missing chapters.
 - [x] **Bookmark & Library Export (`GET /api/v1/user/list-backup/export`)**: Direct exports to MyAnimeList XML (`mal`), AniList JSON (`anilist`), CSV (`csv`), and raw JSON backups.
+- [x] **Interactive Swagger UI & Web API Server**: Built-in FastAPI application providing interactive OpenAPI documentation, Swagger UI (`/docs`), ReDoc (`/redoc`), and REST endpoints.
+- [x] **Comprehensive Test Suite**: Automated tests using `pytest` covering all modules, formats, API calls, and Web server endpoints.
 - [x] **Rich Terminal UI**: Formatted console tables via `rich` with automatic plain ASCII fallback.
 
 ---

@@ -94,6 +94,38 @@ If you need to access age-restricted (18+) or protected titles:
 
 ---
 
+## Interactive Swagger UI & Web API Server
+
+ComixAPI includes a high-performance REST API powered by FastAPI with built-in, interactive **Swagger UI** and **ReDoc**:
+
+```bash
+# Start the web server with Swagger UI (default: http://127.0.0.1:8000)
+python comix_downloader.py server
+python main.py server
+
+# Run on custom port or interface
+python comix_downloader.py server --host 0.0.0.0 --port 8000
+```
+
+Once running, navigate to **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)** in your web browser:
+- 📌 **Swagger UI**: `http://127.0.0.1:8000/docs`
+- 📌 **ReDoc**: `http://127.0.0.1:8000/redoc`
+- 📌 **OpenAPI 3.1 JSON Specification**: `http://127.0.0.1:8000/openapi.json`
+
+Interactive endpoints available in Swagger UI:
+* **`GET /api/search`**: Query manga titles with keyword, genre, demographic, and sort filters.
+* **`GET /api/trending`**: Discover top trending or most followed titles across 1, 7, or 30 days.
+* **`GET /api/manga/{slug_or_id}`**: Structured metadata, high-res posters, authors, and external links.
+* **`GET /api/manga/{slug_or_id}/chapters`**: Complete chapter list with scanlation deduplication.
+* **`GET /api/manga/{slug_or_id}/groups`**: Scanlation groups that translated the title.
+* **`GET /api/collections/{collection_id}`**: Retrieve items in curated community reading lists.
+* **`GET /api/user/following`**: Personal bookmarked reading list with folder filtering (requires cookies).
+* **`GET /api/user/history`**: User's recently read reading history.
+* **`GET /api/user/export`**: Export library to MyAnimeList XML (`mal`), AniList JSON (`anilist`), CSV, or JSON backup.
+* **`POST /api/download/chapter`**: Trigger on-demand chapter downloads in CBZ, PDF, or EPUB format.
+
+---
+
 ## Usage
 
 ### 1. In-CLI Search & Interactive Download

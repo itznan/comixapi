@@ -223,3 +223,5 @@ class SearchMixin:
         encrypted = self._http_get(full_url, is_json=True, extra_headers={"Referer": BASE_URL})
         decrypted = self.bridge.decrypt(url_path, encrypted, manga_id=hid)
         return self._extract_items(decrypted)
+
+    search_manga = search_titles

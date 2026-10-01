@@ -72,7 +72,7 @@ Examples:
   python comix_downloader.py https://comix.to/title/<slug> --list-groups
         """
     )
-    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'collection', 'groups', 'sync', 'export', 'following', 'history' command")
+    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'collection', 'groups', 'sync', 'export', 'following', 'history', 'server' command")
     parser.add_argument("search_query", nargs="*", default=[], help="Search query, collection target, or format when using commands")
 
     # Curated Collections options
@@ -121,6 +121,10 @@ Examples:
     parser.add_argument("--no-aria2", dest="use_aria2", action="store_false", help="Disable aria2c and use standard Python threads")
     parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after archive creation")
 
+    # Server and Swagger UI options
+    parser.add_argument("--port", type=int, default=8000, help="Web server port for Swagger UI (default: 8000)")
+    parser.add_argument("--host", default="127.0.0.1", help="Web server host interface (default: 127.0.0.1)")
+
     # Cover & Metadata options
     parser.add_argument("--cover", dest="include_cover", action="store_true", default=True, help="Download official cover art as cover.jpg and embed in PDF/CBZ (default: True)")
     parser.add_argument("--no-cover", dest="include_cover", action="store_false", help="Disable downloading and embedding cover art")
@@ -151,6 +155,13 @@ Examples:
         "generate_comicinfo": args.generate_comicinfo,
         "export_format": selected_format,
     }
+
+    # Route: Web Server & Swagger UI command
+    is_server_cmd = (args.target and args.target.lower() in ("server", "api", "swagger", "ui"))
+    if is_server_cmd:
+        from src.server import start_server
+        start_server(host=args.host, port=args.port)
+        return
 
     # Route: Sync library command or flag
     is_sync_cmd = (args.target and args.target.lower() in ("sync", "update-library")) or bool(args.sync_flag)
