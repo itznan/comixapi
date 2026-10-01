@@ -15,11 +15,20 @@ from fastapi.responses import RedirectResponse, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from .config import USER_AGENT, BASE_URL
-from .api import ComixAPI
-from .downloader import ComixDownloader
-from .cookies import find_default_cookies, parse_cookie_file
-from .pdf import is_aria2c_available
+try:
+    from .config import USER_AGENT, BASE_URL
+    from .api import ComixAPI
+    from .downloader import ComixDownloader
+    from .cookies import find_default_cookies, parse_cookie_file
+    from .pdf import is_aria2c_available
+except (ImportError, ValueError):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from src.config import USER_AGENT, BASE_URL
+    from src.api import ComixAPI
+    from src.downloader import ComixDownloader
+    from src.cookies import find_default_cookies, parse_cookie_file
+    from src.pdf import is_aria2c_available
 
 
 def proxy_image_url(url: Optional[str]) -> Optional[str]:
@@ -166,7 +175,48 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        openapi_url="/openapi.json"
+        openapi_url="/openapi.json",
+        swagger_ui_parameters={
+            "defaultModelsExpandDepth": -1,
+            "docExpansion": "list",
+            "displayRequestDuration": True,
+            "filter": True,
+            "syntaxHighlight.theme": "monokai"
+        },
+        openapi_tags=[
+            {
+                "name": "System",
+                "description": "System health check, cookie authentication status, and aria2 accelerator state."
+            },
+            {
+                "name": "Image Proxy",
+                "description": "Bypass CORS & CORP image proxy. Wraps all CDN images to render directly in browser `<img>` tags."
+            },
+            {
+                "name": "Comix Manga API",
+                "description": "REST API with feature parity for web reader apps, Discord bots, and personal dashboards."
+            },
+            {
+                "name": "Manga Details",
+                "description": "Detailed comic metadata, scanlation teams, and deduplicated chapter lists."
+            },
+            {
+                "name": "Collections",
+                "description": "Browse and batch-read curated reading lists and staff picks."
+            },
+            {
+                "name": "Discovery",
+                "description": "Legacy title search and trending charts."
+            },
+            {
+                "name": "User Account",
+                "description": "Personal library synchronization, bookmarks export (MAL/AniList), and reading history."
+            },
+            {
+                "name": "Downloader",
+                "description": "On-demand document packaging for chapters into CBZ, PDF, and EPUB."
+            }
+        ]
     )
 
     # Enable CORS for external web dashboards and reader apps
@@ -936,7 +986,8 @@ def start_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False
     print(f"📌 Swagger UI Documentation: http://{host}:{port}/docs")
     print(f"📌 ReDoc Documentation:      http://{host}:{port}/redoc")
     print(f"==========================================================\n")
-    uvicorn.run("src.server:app", host=host, port=port, reload=reload)
+    target_app = "src.server:app" if reload else app
+    uvicorn.run(target_app, host=host, port=port, reload=reload)
 
 
 if __name__ == "__main__":
