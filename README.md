@@ -151,11 +151,21 @@ Manage and synchronize your personal reading list directly with your Comix.to ac
 python comix_downloader.py sync
 python comix_downloader.py --sync
 
+# Sync only titles in your "Reading" folder
+python comix_downloader.py sync --folder reading
+
+# Only download unread chapters released after your last read chapter
+python comix_downloader.py sync --unread-only
+
 # Check for new releases without downloading (dry run)
 python comix_downloader.py --sync --dry-run
 
 # View all followed / bookmarked titles in your account
 python comix_downloader.py following
+python comix_downloader.py following --folder reading
+
+# View recently read chapters from your account history
+python comix_downloader.py history
 
 # Export bookmarks to MyAnimeList XML format (MAL)
 python comix_downloader.py --export-bookmarks mal
@@ -232,10 +242,13 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 
 | Option | Short | Description | Default |
 |---|---|---|---|
-| `target` | | Comic URL / slug, or `search` / `trending` / `collection` / `groups` / `sync` / `following` | *Required* |
+| `target` | | Comic URL / slug, or `search` / `trending` / `collection` / `groups` / `sync` / `following` / `history` | *Required* |
 | `search_query` | | Search keyword, collection target, or export format | `None` |
 | `--collection` | | Curated collection URL or ID to batch download | `None` |
 | `--sync` | | Check reading list and download new/missing chapters | `False` |
+| `--unread-only` | | When syncing reading list, only download unread chapters | `False` |
+| `--folder` | | Filter reading list by folder (`reading`, `completed`, `paused`, `dropped`, `planning`) | `None` |
+| `--history` | | View recently read chapters from account history | `False` |
 | `--dry-run` | | When syncing or downloading collections, preview without downloading | `False` |
 | `--export-bookmarks`| | Export reading list (`mal`, `anilist`, `csv`, `json`) | `mal` |
 | `--trending` | | Browse trending titles (flag alternative to `trending`) | `False` |

@@ -72,7 +72,7 @@ Examples:
   python comix_downloader.py https://comix.to/title/<slug> --list-groups
         """
     )
-    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'collection', 'groups', 'sync', 'export', 'following' command")
+    parser.add_argument("target", nargs="?", default=None, help="Comic title URL / slug, or 'search', 'trending', 'collection', 'groups', 'sync', 'export', 'following', 'history' command")
     parser.add_argument("search_query", nargs="*", default=[], help="Search query, collection target, or format when using commands")
 
     # Curated Collections options
@@ -82,6 +82,9 @@ Examples:
     parser.add_argument("--sync", dest="sync_flag", action="store_true", help="Sync reading list: check followed titles and download new/missing chapters")
     parser.add_argument("--export-bookmarks", dest="export_bookmarks", nargs="?", const="mal", help="Export Comix.to bookmarks to MAL, AniList, CSV, or JSON (default: mal)")
     parser.add_argument("--dry-run", action="store_true", help="When syncing or downloading collections, preview items without actually downloading")
+    parser.add_argument("--unread-only", action="store_true", help="When syncing reading list, only download unread chapters released after your last read chapter")
+    parser.add_argument("--folder", help="Filter followed reading list by folder (reading, completed, paused, dropped, planning)")
+    parser.add_argument("--history", dest="history_flag", action="store_true", help="View recently read titles from account history")
 
     # Search & Discovery options
     parser.add_argument("-s", "--search", dest="search_flag", help="Search keyword (alternative to 'search <query>')")
@@ -138,6 +141,9 @@ Examples:
     is_sync_cmd = (args.target and args.target.lower() in ("sync", "update-library")) or bool(args.sync_flag)
     if is_sync_cmd:
         ComixDownloader.sync_library(
+            folder=args.folder,
+            unread_only=args.unread_only,
+            limit=args.limit if (args.limit != 10 or args.target == "sync") else None,
             cookie_file=args.cookies,
             dry_run=args.dry_run,
             downloader_options=common_downloader_opts
@@ -162,6 +168,20 @@ Examples:
         opts = common_downloader_opts.copy()
         opts["chapter_range"] = args.chapters
         ComixDownloader.list_following(
+            folder=args.folder,
+            interactive=not args.no_interactive,
+            cookie_file=args.cookies,
+            downloader_options=opts
+        )
+        return
+
+    # Route: List reading history
+    is_history_cmd = (args.target and args.target.lower() in ("history", "recent", "recently-read")) or bool(args.history_flag)
+    if is_history_cmd:
+        opts = common_downloader_opts.copy()
+        opts["chapter_range"] = args.chapters
+        ComixDownloader.list_history(
+            limit=args.limit,
             interactive=not args.no_interactive,
             cookie_file=args.cookies,
             downloader_options=opts
