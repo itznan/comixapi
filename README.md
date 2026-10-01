@@ -113,16 +113,33 @@ Once running, navigate to **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/d
 - 📌 **OpenAPI 3.1 JSON Specification**: `http://127.0.0.1:8000/openapi.json`
 
 Interactive endpoints available in Swagger UI:
+* **`GET /api/image?url=...`**: **Bypass CORS & CORP** image proxy with permissive headers (`Access-Control-Allow-Origin: *`, `Cross-Origin-Resource-Policy: cross-origin`). All manga pages and covers are automatically proxied so they render seamlessly in browser `<img>` tags.
+* **`GET /api/manga/home`**: Fetches "Most Recent Popular" and "Latest Updates" from homepage. Supports `?sfw=true`.
+* **`GET /api/manga/search`**: Advanced search by query `q` and filters (`types[]`, `status`, `genres[]`, `content_rating[]`, `demographic[]`, `year_from`, `year_to`, `page`, `limit`). Supports `?sfw=true`.
+* **`GET /api/manga/browse`**: Browse manga catalog sorted by newest by default. Supports `?sfw=true`.
+* **`GET /api/manga/filter`**: Filter manga by specific genres, demographics, status, and ratings. Supports `?sfw=true`.
+* **`GET /api/manga/{id}`**: Complete comic metadata (authors, artists, genres, demographics, synopsis, scanlation groups, proxied cover). Supports `?sfw=true` (returns 404 if comic contains mature/NSFW content).
+* **`GET /api/manga/{id}/chapters`**: Paginated chapters list with scanlation group assigned to each chapter.
+* **`GET /api/manga/read`**: Chapter images viewer endpoint (`?chapterId=...`) returning page dimensions and proxied image URLs.
+* **`GET /api/manga/collections/{id}`**: Curated community reading lists and staff collections.
 * **`GET /api/search`**: Query manga titles with keyword, genre, demographic, and sort filters.
 * **`GET /api/trending`**: Discover top trending or most followed titles across 1, 7, or 30 days.
-* **`GET /api/manga/{slug_or_id}`**: Structured metadata, high-res posters, authors, and external links.
-* **`GET /api/manga/{slug_or_id}/chapters`**: Complete chapter list with scanlation deduplication.
 * **`GET /api/manga/{slug_or_id}/groups`**: Scanlation groups that translated the title.
 * **`GET /api/collections/{collection_id}`**: Retrieve items in curated community reading lists.
 * **`GET /api/user/following`**: Personal bookmarked reading list with folder filtering (requires cookies).
 * **`GET /api/user/history`**: User's recently read reading history.
 * **`GET /api/user/export`**: Export library to MyAnimeList XML (`mal`), AniList JSON (`anilist`), CSV, or JSON backup.
 * **`POST /api/download/chapter`**: Trigger on-demand chapter downloads in CBZ, PDF, or EPUB format.
+
+### SFW Content Filtering
+The platform contains both safe and mature content. To filter out mature/NSFW content (Hentai, Erotica, Smut) on any listing or details endpoint, pass `?sfw=true`:
+```bash
+# Search safe content only
+curl "http://localhost:8000/api/manga/search?q=elf&sfw=true"
+
+# Safe homepage discovery
+curl "http://localhost:8000/api/manga/home?sfw=true"
+```
 
 ---
 

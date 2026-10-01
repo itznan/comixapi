@@ -3,6 +3,7 @@ Manga search, trending discovery, category filtering, and scanlation group metad
 """
 
 import urllib.parse
+from typing import Any, Optional, List, Tuple
 from ..config import BASE_URL, API_BASE, GENRE_MAP, DEMOGRAPHIC_MAP
 
 
@@ -18,9 +19,13 @@ class SearchMixin:
         status: str = None,
         sort: str = None,
         genres: list = None,
-        demographics: list = None
-    ) -> list:
-        """Search manga on Comix.to with optional filters and sorting."""
+        demographics: list = None,
+        content_ratings: list = None,
+        year_from: int = None,
+        year_to: int = None,
+        return_meta: bool = False
+    ) -> Any:
+        """Search manga on Comix.to with optional filters, sorting, and pagination metadata."""
         if not self.bridge:
             self.bootstrap()
 
@@ -156,6 +161,33 @@ class SearchMixin:
             if resolved_demos:
                 params["demographics"] = resolved_demos
 
+        if content_ratings:
+            if isinstance(content_ratings, (str, int)):
+                content_ratings = [content_ratings]
+            resolved_ratings = []
+            for r in content_ratings:
+                if isinstance(r, str):
+                    for part in r.split(","):
+                        clean_r = part.strip().lower()
+                        if clean_r:
+                            resolved_ratings.append(clean_r)
+                elif r:
+                    resolved_ratings.append(str(r).lower())
+            if resolved_ratings:
+                params["content_rating"] = resolved_ratings
+
+        if year_from is not None:
+            try:
+                params["year_from"] = int(year_from)
+            except (ValueError, TypeError):
+                pass
+
+        if year_to is not None:
+            try:
+                params["year_to"] = int(year_to)
+            except (ValueError, TypeError):
+                pass
+
         signed_params = self.bridge.sign(url_path, params=params)
 
         pairs = []
@@ -178,7 +210,13 @@ class SearchMixin:
             extra_headers={"Referer": f"{BASE_URL}/browse"}
         )
         decrypted = self.bridge.decrypt(url_path, encrypted_json)
-        return self._extract_items(decrypted)
+        items = self._extract_items(decrypted)
+        if return_meta:
+            meta = decrypted.get("meta") or {}
+            if not meta and isinstance(decrypted.get("result"), dict):
+                meta = decrypted["result"].get("meta", {})
+            return items, meta
+        return items
 
     def get_top_titles(self, type_filter: str = "trending", days: int = 1, limit: int = 20) -> list:
         """Fetch top or trending titles on Comix.to."""

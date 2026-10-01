@@ -16,6 +16,9 @@ A curated roadmap of high-value, legitimate features, architecture enhancements,
 - [x] **Account Library Sync (`GET /api/v1/user/following-titles`)**: Synchronizes your personal Comix.to reading list and downloads newly released or missing chapters.
 - [x] **Bookmark & Library Export (`GET /api/v1/user/list-backup/export`)**: Direct exports to MyAnimeList XML (`mal`), AniList JSON (`anilist`), CSV (`csv`), and raw JSON backups.
 - [x] **Interactive Swagger UI & Web API Server**: Built-in FastAPI application providing interactive OpenAPI documentation, Swagger UI (`/docs`), ReDoc (`/redoc`), and REST endpoints.
+- [x] **Bypass CORS & CORP Image Proxy (`/api/image`)**: Built-in image proxy providing permissive cross-origin headers to safely embed manga pages and posters into web applications.
+- [x] **SFW Content Filtering (`?sfw=true`)**: Single query parameter content filter to suppress mature/NSFW titles across `/home`, `/search`, `/browse`, `/filter`, and `/api/manga/{id}`.
+- [x] **Complete Comix API Feature Parity**: Native REST endpoints for `/api/manga/home`, `/api/manga/search`, `/api/manga/:id`, `/api/manga/:id/chapters`, `/api/manga/read`, `/api/manga/collections/:id`, `/api/manga/browse`, and `/api/manga/filter`.
 - [x] **Comprehensive Test Suite**: Automated tests using `pytest` covering all modules, formats, API calls, and Web server endpoints.
 - [x] **Rich Terminal UI**: Formatted console tables via `rich` with automatic plain ASCII fallback.
 
