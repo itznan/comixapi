@@ -8,6 +8,7 @@ from .cookies import find_default_cookies, parse_cookie_file
 from .utils import sanitize_filename, parse_chapter_spec
 from .api import ComixAPI
 from .pdf import build_pdf_from_urls, merge_pdf_files
+from .metadata import save_comic_info_xml, download_cover
 
 
 class ComixDownloader:
@@ -16,7 +17,9 @@ class ComixDownloader:
     def __init__(self, target_url: str, output_dir: str = None, cookie_file: str = None,
                  concurrency: int = DEFAULT_CONCURRENCY, preferred_group: str = None,
                  lang: str = "en", merge_all: bool = False, keep_images: bool = False,
-                 use_aria2: bool = None, from_here: bool = False):
+                 use_aria2: bool = None, from_here: bool = False,
+                 include_cover: bool = True, cover_first: bool = False,
+                 generate_comicinfo: bool = True):
         self.target_url = target_url
         self.output_dir = Path(output_dir) if output_dir else None
         self.cookie_file = cookie_file or find_default_cookies()
@@ -28,6 +31,9 @@ class ComixDownloader:
         self.keep_images = keep_images
         self.use_aria2 = use_aria2
         self.from_here = from_here
+        self.include_cover = include_cover
+        self.cover_first = cover_first
+        self.generate_comicinfo = generate_comicinfo
 
         self.api = ComixAPI(self.target_url, self.cookie_header)
 
@@ -96,7 +102,7 @@ class ComixDownloader:
 
         return deduped
 
-    def download_chapter(self, chapter: dict, out_folder: Path) -> Path:
+    def download_chapter(self, chapter: dict, out_folder: Path, cover_image: Path = None) -> Path:
         """Download single chapter and convert to PDF."""
         ch_num = chapter.get("number", 0)
         ch_name = chapter.get("name") or chapter.get("title") or ""
@@ -123,7 +129,8 @@ class ComixDownloader:
             concurrency=self.concurrency,
             use_aria2=self.use_aria2,
             keep_images=self.keep_images,
-            desc=f"Ch.{ch_num} pages"
+            desc=f"Ch.{ch_num} pages",
+            cover_image_path=cover_image
         )
 
         if success and pdf_path.exists():
@@ -149,16 +156,43 @@ class ComixDownloader:
             self.output_dir.mkdir(parents=True, exist_ok=True)
             print(f"[*] Output directory: {self.output_dir.resolve()}")
 
+            # 1. Download official high-res cover poster and save as cover.jpg
+            cover_path = self.output_dir / "cover.jpg"
+            if self.include_cover:
+                poster_url = None
+                poster_data = self.api.metadata.get("poster")
+                if isinstance(poster_data, dict):
+                    poster_url = poster_data.get("large") or poster_data.get("medium")
+                elif isinstance(poster_data, str):
+                    poster_url = poster_data
+
+                if poster_url:
+                    if download_cover(poster_url, cover_path):
+                        print(f"[+] Downloaded official cover poster: {cover_path.name}")
+
+            # 2. Generate standard ComicInfo.xml metadata for media servers (Komga, Kavita, Calibre)
+            if self.generate_comicinfo:
+                comicinfo_path = self.output_dir / "ComicInfo.xml"
+                save_comic_info_xml(self.api.metadata, comicinfo_path)
+                print(f"[+] Generated ComicInfo.xml metadata for {self.api.manga_title}")
+
             downloaded_pdfs = []
             for idx, ch in enumerate(chapters, 1):
                 print(f"\n--- [{idx}/{len(chapters)}] Chapter {ch.get('number')} ---")
-                pdf_path = self.download_chapter(ch, self.output_dir)
+                ch_num = ch.get("number")
+                ch_cover = None
+                if self.include_cover and cover_path.exists():
+                    if self.cover_first or (ch_num in (1, 1.0, 0, 0.0) and not self.merge_all):
+                        ch_cover = cover_path
+
+                pdf_path = self.download_chapter(ch, self.output_dir, cover_image=ch_cover)
                 if pdf_path and pdf_path.exists():
                     downloaded_pdfs.append(pdf_path)
 
             if self.merge_all and downloaded_pdfs:
                 merged_path = self.output_dir / f"{sanitize_filename(self.api.manga_title)} - Complete.pdf"
-                merge_pdf_files(downloaded_pdfs, merged_path)
+                merged_cover = cover_path if (self.include_cover and cover_path.exists()) else None
+                merge_pdf_files(downloaded_pdfs, merged_path, cover_image_path=merged_cover)
 
             print(f"\n[OK] Finished downloading! {len(downloaded_pdfs)} PDF files saved in:")
             print(f"    {self.output_dir.resolve()}")
@@ -466,8 +500,16 @@ class ComixDownloader:
                         if not dry_run:
                             downloader.output_dir = manga_dir
                             manga_dir.mkdir(parents=True, exist_ok=True)
+                            cover_file = manga_dir / "cover.jpg"
+                            if not cover_file.exists():
+                                download_cover(downloader.api.metadata, cover_file)
+                            comicinfo_file = manga_dir / "ComicInfo.xml"
+                            if not comicinfo_file.exists():
+                                save_comic_info_xml(downloader.api.metadata, comicinfo_file)
+
                             for ch in needed_chapters:
-                                res = downloader.download_chapter(ch, manga_dir)
+                                ch_cover = cover_file if (cover_file.exists() and ch.get("number") in (1, 1.0, 0, 0.0)) else None
+                                res = downloader.download_chapter(ch, manga_dir, cover_image=ch_cover)
                                 if res:
                                     total_downloaded += 1
                             print(f"    ✓ Finished syncing {title}.")

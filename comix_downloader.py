@@ -104,7 +104,26 @@ Examples:
     parser.add_argument("--no-aria2", dest="use_aria2", action="store_false", help="Disable aria2c and use standard Python threads")
     parser.add_argument("--keep-images", action="store_true", help="Keep raw downloaded image files instead of deleting after PDF creation")
 
+    # Cover & Metadata options
+    parser.add_argument("--cover", dest="include_cover", action="store_true", default=True, help="Download official cover art as cover.jpg and embed in PDF (default: True)")
+    parser.add_argument("--no-cover", dest="include_cover", action="store_false", help="Disable downloading and embedding cover art")
+    parser.add_argument("--cover-first", action="store_true", help="Insert cover art as the first page of every chapter PDF")
+    parser.add_argument("--no-comicinfo", dest="generate_comicinfo", action="store_false", default=True, help="Disable generating ComicInfo.xml metadata file")
+
     args = parser.parse_args()
+
+    common_downloader_opts = {
+        "output_dir": args.output,
+        "concurrency": args.threads,
+        "preferred_group": args.group,
+        "lang": args.lang,
+        "merge_all": args.merge,
+        "keep_images": args.keep_images,
+        "use_aria2": args.use_aria2,
+        "include_cover": args.include_cover,
+        "cover_first": args.cover_first,
+        "generate_comicinfo": args.generate_comicinfo,
+    }
 
     # Route: Sync library command or flag
     is_sync_cmd = (args.target and args.target.lower() in ("sync", "update-library")) or bool(args.sync_flag)
@@ -112,15 +131,7 @@ Examples:
         ComixDownloader.sync_library(
             cookie_file=args.cookies,
             dry_run=args.dry_run,
-            downloader_options={
-                "output_dir": args.output,
-                "concurrency": args.threads,
-                "preferred_group": args.group,
-                "lang": args.lang,
-                "merge_all": args.merge,
-                "keep_images": args.keep_images,
-                "use_aria2": args.use_aria2
-            }
+            downloader_options=common_downloader_opts
         )
         return
 
@@ -139,19 +150,12 @@ Examples:
     # Route: List followed titles / library
     is_following_cmd = (args.target and args.target.lower() in ("following", "library", "bookmarks"))
     if is_following_cmd:
+        opts = common_downloader_opts.copy()
+        opts["chapter_range"] = args.chapters
         ComixDownloader.list_following(
             interactive=not args.no_interactive,
             cookie_file=args.cookies,
-            downloader_options={
-                "output_dir": args.output,
-                "concurrency": args.threads,
-                "preferred_group": args.group,
-                "lang": args.lang,
-                "merge_all": args.merge,
-                "keep_images": args.keep_images,
-                "use_aria2": args.use_aria2,
-                "chapter_range": args.chapters
-            }
+            downloader_options=opts
         )
         return
 
@@ -162,23 +166,16 @@ Examples:
         if args.type and args.type.lower() in ("trending", "follows"):
             trend_mode = args.type.lower()
 
+        opts = common_downloader_opts.copy()
+        opts["from_here"] = args.from_here
+        opts["chapter_range"] = args.chapters
         ComixDownloader.trending(
             trend_type=trend_mode,
             days=args.days,
             limit=args.limit,
             interactive=not args.no_interactive,
             cookie_file=args.cookies,
-            downloader_options={
-                "output_dir": args.output,
-                "concurrency": args.threads,
-                "preferred_group": args.group,
-                "lang": args.lang,
-                "merge_all": args.merge,
-                "keep_images": args.keep_images,
-                "use_aria2": args.use_aria2,
-                "from_here": args.from_here,
-                "chapter_range": args.chapters
-            }
+            downloader_options=opts
         )
         return
 
@@ -197,6 +194,9 @@ Examples:
             print("[!] Please provide a search query or filter: python comix_downloader.py search \"<keyword>\"")
             sys.exit(1)
 
+        opts = common_downloader_opts.copy()
+        opts["from_here"] = args.from_here
+        opts["chapter_range"] = args.chapters
         ComixDownloader.search(
             keyword=keyword,
             limit=args.limit,
@@ -207,17 +207,7 @@ Examples:
             sort=args.sort,
             interactive=not args.no_interactive,
             cookie_file=args.cookies,
-            downloader_options={
-                "output_dir": args.output,
-                "concurrency": args.threads,
-                "preferred_group": args.group,
-                "lang": args.lang,
-                "merge_all": args.merge,
-                "keep_images": args.keep_images,
-                "use_aria2": args.use_aria2,
-                "from_here": args.from_here,
-                "chapter_range": args.chapters
-            }
+            downloader_options=opts
         )
         return
 
@@ -225,15 +215,9 @@ Examples:
     if args.target:
         downloader = ComixDownloader(
             target_url=args.target,
-            output_dir=args.output,
             cookie_file=args.cookies,
-            concurrency=args.threads,
-            preferred_group=args.group,
-            lang=args.lang,
-            merge_all=args.merge,
-            keep_images=args.keep_images,
-            use_aria2=args.use_aria2,
-            from_here=args.from_here
+            from_here=args.from_here,
+            **common_downloader_opts
         )
         if args.list_groups:
             downloader.list_groups()

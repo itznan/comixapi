@@ -87,7 +87,7 @@ def download_images_aria2c(download_tasks: list, temp_dir: Path, concurrency: in
 
 def build_pdf_from_urls(img_urls: list, pdf_path: Path, concurrency: int = 8,
                        use_aria2: bool = None, keep_images: bool = False,
-                       desc: str = "Pages") -> bool:
+                       desc: str = "Pages", cover_image_path: Path = None) -> bool:
     """Download images in parallel and compile them sequentially into a PDF file."""
     if not img_urls:
         return False
@@ -129,6 +129,18 @@ def build_pdf_from_urls(img_urls: list, pdf_path: Path, concurrency: int = 8,
 
     pil_images = []
     try:
+        # Prepend cover image as first page if provided
+        if cover_image_path:
+            c_path = Path(cover_image_path)
+            if c_path.exists() and c_path.stat().st_size > 0:
+                try:
+                    c_im = Image.open(c_path)
+                    if c_im.mode != "RGB":
+                        c_im = c_im.convert("RGB")
+                    pil_images.append(c_im)
+                except Exception as ex:
+                    print(f"[!] Warning: Could not decode cover image {c_path.name}: {ex}")
+
         for _, img_path in download_tasks:
             if not img_path.exists() or img_path.stat().st_size == 0:
                 continue
@@ -162,7 +174,7 @@ def build_pdf_from_urls(img_urls: list, pdf_path: Path, concurrency: int = 8,
             shutil.rmtree(temp_img_dir, ignore_errors=True)
 
 
-def merge_pdf_files(pdf_list: list, final_pdf_path: Path) -> bool:
+def merge_pdf_files(pdf_list: list, final_pdf_path: Path, cover_image_path: Path = None) -> bool:
     """Combine multiple chapter PDFs into a single complete volume PDF."""
     if not pdf_list:
         return False
@@ -170,6 +182,17 @@ def merge_pdf_files(pdf_list: list, final_pdf_path: Path) -> bool:
     print(f"[*] Merging {len(pdf_list)} chapters into single PDF: {final_pdf_path.name}...")
     if HAS_PYMUPDF:
         doc_out = pymupdf.open()
+        if cover_image_path:
+            c_path = Path(cover_image_path)
+            if c_path.exists() and c_path.stat().st_size > 0:
+                try:
+                    with pymupdf.open(str(c_path)) as c_doc:
+                        pdf_bytes = c_doc.convert_to_pdf()
+                        with pymupdf.open("pdf", pdf_bytes) as c_pdf:
+                            doc_out.insert_pdf(c_pdf)
+                except Exception as ex:
+                    print(f"[!] Warning: Could not insert cover into merged PDF: {ex}")
+
         for p in pdf_list:
             with pymupdf.open(str(p)) as doc_in:
                 doc_out.insert_pdf(doc_in)

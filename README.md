@@ -6,6 +6,8 @@ A high-performance Python tool to download manga, manhwa, or comic series from *
 
 ## Features
 
+- **High-Res Cover Art & First-Page Embedding**: Automatically fetches official CDN high-res cover art (`cover.jpg`) and embeds it as the first page of complete merged volumes or chapter 1.
+- **Media Server ComicInfo.xml Generation**: Automatically generates standard `ComicInfo.xml` metadata in every series directory with authors, artists, publishers, genres, tags, age ratings, community scores, and external links (MAL, AniList, MangaUpdates, MangaDex) for **Komga**, **Kavita**, and **Calibre**.
 - **Interactive In-CLI Search**: Search Comix.to directly from your terminal (`search <query>`) with interactive number selection to download immediately without opening a browser.
 - **Trending & "Top" Discovery**: Discover daily, weekly, or monthly trending (`trending`) and most followed (`--trend-type follows`) comics with instant download prompts.
 - **Account Follows & Library Sync**: Automatically scan all bookmarked titles in your personal Comix.to reading list (`--sync`) and download newly released chapters.
@@ -16,7 +18,7 @@ A high-performance Python tool to download manga, manhwa, or comic series from *
 - **Client Security & Token Emulation**: Automatically detects comix.to's dynamic security VM and signs requests/decrypts responses using an embedded Node.js bridge.
 - **Automatic Metadata & Asset Discovery**: Auto-extracts title, author, chapter list, CFG token, and the latest security bundle without manual configuration.
 - **Smart Chapter Deduplication**: Comix.to hosts chapters from multiple scanlation groups. By default, the script selects the highest-quality/voted release for each chapter number to prevent duplicates.
-- **Flexible Chapter Selection**: Download everything or specify ranges such as `-c 1-5`, `-c 1,3,5`, or `-c 20+`.
+- **Flexible Chapter Selection**: Download everything or specify ranges such as `-c 1-5`, `-c 1,3,5`, `-c latest`, or `-c 20+`.
 - **High-Speed Concurrent Downloads**: Multithreaded image downloading with live progress bars via `tqdm`.
 - **Aria2 Acceleration**: Auto-detects and leverages `aria2c` for high-throughput parallel image fetching when available.
 - **Complete PDF Merging**: Option (`--merge`) to combine all downloaded chapters into a single volume PDF (`{Title} - Complete.pdf`).
@@ -227,3 +229,8 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 | `--no-aria2` | | Disable aria2c and use standard Python threads | `False` |
 | `--cookies` | | Path to cookie file | Auto-discovered |
 | `--keep-images` | | Keep raw downloaded image files after PDF creation | `False` |
+| `--cover` | | Download high-res cover poster and embed in PDF | `True` |
+| `--no-cover` | | Disable downloading and embedding cover art | `False` |
+| `--cover-first` | | Insert cover art as the first page of every chapter PDF | `False` |
+| `--no-comicinfo` | | Disable generating ComicInfo.xml metadata file | `False` |
+

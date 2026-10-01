@@ -3,6 +3,7 @@ Metadata generation (ComicInfo.xml) and cover image management for Comix.to down
 Compatible with Komga, Kavita, Tachiyomi, Mihon, and modern comic readers.
 """
 
+import re
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from pathlib import Path
@@ -15,7 +16,7 @@ def generate_comic_info_xml(
     chapter: dict = None,
     page_count: int = 0
 ) -> str:
-    """Generate standard ComicInfo.xml metadata string for CBZ/archives."""
+    """Generate standard ComicInfo.xml metadata string for CBZ/archives and media servers."""
     root = ET.Element("ComicInfo")
     root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
     root.set("xmlns:xsd", "http://www.w3.org/2001/XMLSchema")
@@ -38,10 +39,13 @@ def generate_comic_info_xml(
     series_elem.text = title
 
     # Summary
-    synopsis = manga_metadata.get("synopsis")
+    synopsis = manga_metadata.get("synopsis") or ""
     if synopsis:
-        summary_elem = ET.SubElement(root, "Summary")
-        summary_elem.text = synopsis.strip()
+        # Strip potential HTML tags
+        clean_synopsis = re.sub(r"<[^>]+>", "", synopsis).strip()
+        if clean_synopsis:
+            summary_elem = ET.SubElement(root, "Summary")
+            summary_elem.text = clean_synopsis
 
     # Authors & Artists
     authors = [a.get("title") for a in manga_metadata.get("authors", []) if a.get("title")]
@@ -53,6 +57,12 @@ def generate_comic_info_xml(
     if artists:
         penciller_elem = ET.SubElement(root, "Penciller")
         penciller_elem.text = ", ".join(artists)
+
+    # Publishers
+    publishers = [p.get("title") for p in manga_metadata.get("publishers", []) if p.get("title")]
+    if publishers:
+        pub_elem = ET.SubElement(root, "Publisher")
+        pub_elem.text = ", ".join(publishers)
 
     # Genres & Tags
     genres = [g.get("title") for g in manga_metadata.get("genres", []) if g.get("title")]
@@ -78,36 +88,133 @@ def generate_comic_info_xml(
     web_elem = ET.SubElement(root, "Web")
     web_elem.text = f"{BASE_URL}{url_slug}"
 
+    # Community Rating
+    rated_avg = manga_metadata.get("ratedAvg") or manga_metadata.get("ratedScore")
+    if rated_avg:
+        cr_elem = ET.SubElement(root, "CommunityRating")
+        cr_elem.text = str(rated_avg)
+
+    # Age / Content Rating
+    content_rating = manga_metadata.get("contentRating")
+    if content_rating:
+        ar_elem = ET.SubElement(root, "AgeRating")
+        cr_map = {
+            "safe": "Everyone",
+            "suggestive": "Teen",
+            "erotica": "Mature 17+",
+            "pornographic": "Adult 18+"
+        }
+        ar_elem.text = cr_map.get(content_rating.lower(), content_rating.capitalize())
+
+    # Total Chapters Count
+    total_chapters = manga_metadata.get("finalChapter") or manga_metadata.get("latestChapter")
+    if total_chapters:
+        count_elem = ET.SubElement(root, "Count")
+        count_elem.text = str(total_chapters)
+
     # Page count
     if page_count > 0:
         pc_elem = ET.SubElement(root, "PageCount")
         pc_elem.text = str(page_count)
 
-    # Scanlation group
+    # Scanlation group / Translator
     if chapter and chapter.get("group") and chapter["group"].get("name"):
         trans_elem = ET.SubElement(root, "Translator")
         trans_elem.text = chapter["group"]["name"]
 
-    # Manga format
-    manga_elem = ET.SubElement(root, "Manga")
+    # Language
+    lang_iso = (chapter.get("language") if chapter else None) or manga_metadata.get("originalLanguage") or "en"
+    lang_elem = ET.SubElement(root, "LanguageISO")
+    lang_elem.text = lang_iso
+
+    # Manga format & Webtoon setting
     m_type = (manga_metadata.get("type") or "").lower()
+    format_elem = ET.SubElement(root, "Format")
+    if m_type in ("manhwa", "manhua"):
+        format_elem.text = "Webtoon"
+    else:
+        format_elem.text = "Manga"
+
+    manga_elem = ET.SubElement(root, "Manga")
     if m_type in ("manhwa", "manhua"):
         manga_elem.text = "Yes"  # Webtoon vertical
     else:
         manga_elem.text = "YesAndRightToLeft"
+
+    # External Links in Notes for media servers (Komga, Kavita)
+    links = manga_metadata.get("links") or {}
+    link_lines = []
+    link_labels = [
+        ("mal", "MyAnimeList"),
+        ("al", "AniList"),
+        ("mu", "MangaUpdates"),
+        ("md", "MangaDex"),
+        ("mb", "MangaBaka"),
+    ]
+    for key, label in link_labels:
+        if key in links and links[key]:
+            link_lines.append(f"{label}: {links[key]}")
+
+    if link_lines:
+        notes_elem = ET.SubElement(root, "Notes")
+        notes_elem.text = "External Links:\n" + "\n".join(link_lines)
 
     raw_xml = ET.tostring(root, encoding="utf-8")
     dom = minidom.parseString(raw_xml)
     return dom.toprettyxml(indent="  ", encoding="utf-8").decode("utf-8")
 
 
-def download_cover(poster_url: str, save_path: Path) -> bool:
-    """Download cover image poster to disk."""
+def save_comic_info_xml(
+    manga_metadata: dict,
+    out_path: Path,
+    chapter: dict = None,
+    page_count: int = 0
+) -> Path:
+    """Generate and write standard ComicInfo.xml to file or directory."""
+    xml_content = generate_comic_info_xml(manga_metadata, chapter=chapter, page_count=page_count)
+    out_path = Path(out_path)
+    if out_path.is_dir() or not out_path.name.lower().endswith(".xml"):
+        out_path.mkdir(parents=True, exist_ok=True)
+        out_file = out_path / "ComicInfo.xml"
+    else:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_file = out_path
+
+    out_file.write_text(xml_content, encoding="utf-8")
+    return out_file
+
+
+def download_cover(poster_source, save_path: Path) -> bool:
+    """Download official high-res cover poster image to disk."""
+    if not poster_source:
+        return False
+
+    poster_url = None
+    if isinstance(poster_source, dict):
+        if "poster" in poster_source and isinstance(poster_source["poster"], (dict, str)):
+            poster_source = poster_source["poster"]
+        if isinstance(poster_source, dict):
+            poster_url = poster_source.get("large") or poster_source.get("medium")
+        else:
+            poster_url = str(poster_source)
+    elif isinstance(poster_source, str):
+        poster_url = poster_source.strip()
+
     if not poster_url:
         return False
+
+    if poster_url.startswith("/"):
+        poster_url = f"{BASE_URL}{poster_url}"
+
     save_path = Path(save_path)
-    save_path.parent.mkdir(parents=True, exist_ok=True)
-    if save_path.exists() and save_path.stat().st_size > 500:
+    if save_path.is_dir() or not save_path.suffix:
+        save_path.mkdir(parents=True, exist_ok=True)
+        save_file = save_path / "cover.jpg"
+    else:
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        save_file = save_path
+
+    if save_file.exists() and save_file.stat().st_size > 500:
         return True
 
     headers = {
@@ -118,7 +225,7 @@ def download_cover(poster_url: str, save_path: Path) -> bool:
         req = urllib.request.Request(poster_url, headers=headers)
         with urllib.request.urlopen(req, timeout=20) as resp:
             data = resp.read()
-        save_path.write_bytes(data)
+        save_file.write_bytes(data)
         return True
-    except Exception as e:
+    except Exception:
         return False
