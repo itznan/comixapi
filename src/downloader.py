@@ -38,12 +38,76 @@ class ComixDownloader:
         self.api = ComixAPI(self.target_url, self.cookie_header)
 
     def filter_and_deduplicate(self, chapters: list, chapter_range_spec: str = None) -> list:
-        """Filter chapters by language/group and pick best version per chapter number."""
-        if self.lang:
-            filtered = [c for c in chapters if c.get("language") == self.lang]
-            if filtered:
-                chapters = filtered
+        """Filter chapters by language/group, handle direct chapter targeting and --from-here, and pick best version per chapter number."""
+        target_ch = None
+        has_target = bool(self.api.target_chapter_id or self.api.target_chapter_num is not None)
 
+        if has_target:
+            tid = str(self.api.target_chapter_id) if self.api.target_chapter_id else None
+            tnum = self.api.target_chapter_num
+
+            candidates = []
+            # 1. Match by ID, HID, or URL segment
+            if tid:
+                candidates = [
+                    c for c in chapters
+                    if str(c.get("id")) == tid or
+                       str(c.get("hid")) == tid or
+                       (c.get("url") and (f"/{tid}-" in c.get("url", "") or c.get("url", "").rstrip("/").endswith(f"/{tid}")))
+                ]
+
+            # 2. If no candidate found by ID and number is available, match by chapter number
+            if not candidates and tnum is not None:
+                candidates = [c for c in chapters if c.get("number") == tnum]
+
+            # 3. If still no candidates and tid looks like a chapter number, match by chapter number
+            if not candidates and tid:
+                try:
+                    num_val = float(tid)
+                    cand_num = int(num_val) if num_val.is_integer() else num_val
+                    candidates = [c for c in chapters if c.get("number") == cand_num]
+                except ValueError:
+                    pass
+
+            if candidates:
+                # Prioritize matching self.lang and best quality (official, votes, id)
+                lang_matches = [c for c in candidates if c.get("language") == self.lang]
+                pool = lang_matches if lang_matches else candidates
+                target_ch = sorted(pool, key=lambda x: (
+                    1 if x.get("isOfficial") else 0,
+                    x.get("votes", 0) or 0,
+                    x.get("id", 0)
+                ), reverse=True)[0]
+            else:
+                desc = tid or tnum
+                print(f"[!] Warning: Target chapter '{desc}' not found in chapter list.")
+                return []
+
+            # If NOT --from-here, download targeted chapter only!
+            if not self.from_here:
+                print(f"[*] Downloading targeted Chapter {target_ch.get('number')} only.")
+                return [target_ch]
+
+            # --from-here enabled with direct chapter URL:
+            target_num = target_ch.get("number", 0)
+            target_lang = target_ch.get("language") or self.lang
+            print(f"[*] --from-here enabled: Starting from Chapter {target_num} onwards.")
+
+            if target_lang:
+                lang_filtered = [c for c in chapters if c.get("language") == target_lang]
+                if lang_filtered:
+                    chapters = lang_filtered
+
+            chapters = [c for c in chapters if c.get("number") is not None and c.get("number") >= target_num]
+
+        else:
+            # Standard manga title URL: filter by language
+            if self.lang:
+                filtered = [c for c in chapters if c.get("language") == self.lang]
+                if filtered:
+                    chapters = filtered
+
+        # Filter by preferred scanlation group if specified
         if self.preferred_group:
             p_lower = self.preferred_group.lower()
             filtered = [
@@ -56,6 +120,7 @@ class ComixDownloader:
             else:
                 print(f"[!] Warning: No chapters matched group '{self.preferred_group}'. Using all groups.")
 
+        # Deduplicate: pick best candidate per chapter number
         grouped = {}
         for c in chapters:
             num = c.get("number")
@@ -75,21 +140,21 @@ class ComixDownloader:
             ), reverse=True)[0]
             deduped.append(best)
 
-        if self.api.target_chapter_id:
-            target_id_str = str(self.api.target_chapter_id)
-            matching = [c for c in deduped if str(c.get("id")) == target_id_str or str(c.get("hid")) == target_id_str]
-            if matching:
-                target_ch = matching[0]
-                if self.from_here:
-                    t_num = target_ch.get("number", 0)
-                    deduped = [c for c in deduped if c.get("number", 0) >= t_num]
-                    print(f"[*] Downloading from Chapter {t_num} onwards ({len(deduped)} chapters).")
-                else:
-                    deduped = [target_ch]
-                    print(f"[*] Downloading targeted Chapter {target_ch.get('number')} only.")
-            else:
-                print(f"[!] Warning: Target chapter ID {target_id_str} not found in chapter list.")
+        # Handle --from-here if passed with a title URL and chapter range like "-c 20 --from-here"
+        if self.from_here and not target_ch and chapter_range_spec:
+            try:
+                start_num = float(chapter_range_spec.strip().rstrip("+"))
+                start_clean = int(start_num) if start_num.is_integer() else start_num
+                deduped = [c for c in deduped if c.get("number", 0) >= start_clean]
+                print(f"[*] Downloading from Chapter {start_clean} onwards ({len(deduped)} chapters).")
+                return deduped
+            except ValueError:
+                pass
 
+        if target_ch and self.from_here:
+            print(f"[*] Downloading from Chapter {target_ch.get('number')} onwards ({len(deduped)} chapters).")
+
+        # Apply chapter range filters if specified
         if chapter_range_spec and str(chapter_range_spec).strip().lower() != "all":
             spec_lower = str(chapter_range_spec).strip().lower()
             if spec_lower in ("latest", "last"):

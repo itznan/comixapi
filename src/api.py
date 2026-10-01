@@ -24,6 +24,7 @@ class ComixAPI:
         self.manga_slug = None
         self.manga_title = None
         self.target_chapter_id = None
+        self.target_chapter_num = None
         self.metadata = {}
         self.cfg_token = None
         self.secure_js_path = None
@@ -31,6 +32,9 @@ class ComixAPI:
 
         self.cache_dir = Path.home() / ".cache" / "comixapi"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.raw_url_or_slug:
+            self.parse_comic_url()
 
     def _http_get(self, url: str, is_json: bool = False, extra_headers: dict = None, retries: int = 3):
         headers = {
@@ -66,7 +70,7 @@ class ComixAPI:
         raise last_err or RuntimeError(f"Failed to fetch {url}")
 
     def parse_comic_url(self) -> str:
-        """Extract hid, slug, and optional target chapter id from URL or slug string."""
+        """Extract hid, slug, and optional target chapter id / number from URL or slug string."""
         url = self.raw_url_or_slug
         if not url:
             return BASE_URL
@@ -79,19 +83,49 @@ class ComixAPI:
 
         parsed = urlparse(url)
         path = parsed.path.strip("/")
-        parts = path.split("/")
+        parts = [p for p in path.split("/") if p]
 
         slug_part = ""
+        chapter_part = ""
+
         if len(parts) >= 3 and parts[0] == "title":
             slug_part = parts[1]
             chapter_part = parts[2]
-            self.target_chapter_id = chapter_part.split("-")[0]
         elif len(parts) >= 2 and parts[0] == "title":
             slug_part = parts[1]
         elif len(parts) == 1 and parts[0]:
             slug_part = parts[0]
         elif parts:
             slug_part = parts[-1]
+
+        if chapter_part:
+            # Parse chapter_part, e.g. "9567548-chapter-40.6", "k26r-chapter-1", "chapter-10", "ch-5", "9567548"
+            m = re.match(r"^([a-zA-Z0-9]+)-(?:chapter|ch)-([\d.]+)", chapter_part, re.IGNORECASE)
+            if m:
+                self.target_chapter_id = m.group(1)
+                try:
+                    num_val = float(m.group(2))
+                    self.target_chapter_num = int(num_val) if num_val.is_integer() else num_val
+                except ValueError:
+                    pass
+            else:
+                m_num = re.match(r"^(?:chapter|ch)-([\d.]+)", chapter_part, re.IGNORECASE)
+                if m_num:
+                    try:
+                        num_val = float(m_num.group(1))
+                        self.target_chapter_num = int(num_val) if num_val.is_integer() else num_val
+                    except ValueError:
+                        pass
+                else:
+                    id_part = chapter_part.split("-")[0]
+                    if id_part:
+                        self.target_chapter_id = id_part
+                        try:
+                            num_val = float(id_part)
+                            if num_val < 10000:
+                                self.target_chapter_num = int(num_val) if num_val.is_integer() else num_val
+                        except ValueError:
+                            pass
 
         if slug_part:
             self.manga_hid = slug_part.split("-")[0]
