@@ -3,7 +3,7 @@ Interactive search, trending discovery, and terminal prompt workflows for the do
 """
 
 from ..cookies import find_default_cookies, parse_cookie_file
-from ..utils import print_manga_table
+from ..utils import print_manga_table, parse_chapter_spec
 from ..api import ComixAPI
 
 
@@ -97,10 +97,11 @@ class InteractiveSearchMixin:
         days: int = 1,
         limit: int = 10,
         interactive: bool = True,
+        auto_download: bool = False,
         cookie_file: str = None,
         downloader_options: dict = None
     ):
-        """Fetch and display trending/top titles on Comix.to with interactive download selection."""
+        """Fetch and display trending/top titles on Comix.to with interactive or automatic download."""
         c_file = cookie_file or find_default_cookies()
         c_header = parse_cookie_file(c_file) if c_file else ""
         api = ComixAPI("", cookie_header=c_header)
@@ -116,33 +117,68 @@ class InteractiveSearchMixin:
 
             print_manga_table(results, title=f"🔥 Comix.to {type_label} ({period_str})")
 
+            # Handle automatic download mode
+            if auto_download:
+                print(f"\n[*] Auto-download enabled: downloading top {len(results)} {type_label.lower()} titles...")
+                opts = downloader_options.copy() if downloader_options else {}
+                opts["cookie_file"] = c_file
+                chapter_range = opts.pop("chapter_range", None) or "all"
+                for idx, selected in enumerate(results, 1):
+                    title_url = selected.get("url") or f"/title/{selected.get('hid')}"
+                    print(f"\n[{idx}/{len(results)}] 📚 Downloading: {selected.get('title')} ({title_url})")
+                    try:
+                        downloader = cls(target_url=title_url, **opts)
+                        downloader.run(chapter_range=chapter_range)
+                    except Exception as ex:
+                        print(f"    [!] Error downloading '{selected.get('title')}': {ex}")
+                return results
+
             if not interactive:
                 return results
 
             while True:
-                choice = input(f"\n[?] Enter number to download (1-{len(results)}) or 'q' to cancel: ").strip()
-                if choice.lower() in ("q", "quit", "exit"):
+                choice = input(f"\n[?] Enter number to download (1-{len(results)}), 'a' to download all, or 'q' to cancel: ").strip()
+                if choice.lower() in ("q", "quit", "exit", "cancel"):
                     print("[*] Cancelled.")
                     return None
-                if choice.isdigit() and 1 <= int(choice) <= len(results):
-                    selected = results[int(choice) - 1]
-                    title_url = selected.get("url") or f"/title/{selected.get('hid')}"
-                    print(f"\n[*] Selected: {selected.get('title')} ({title_url})")
 
-                    opts = downloader_options.copy() if downloader_options else {}
-                    opts["cookie_file"] = c_file
-                    chapter_range = opts.pop("chapter_range", None)
-                    if not chapter_range:
-                        ch_choice = input("\n[?] Enter chapters to download (e.g. 'all', '1-5', 'latest', '10+') [default: all]: ").strip()
-                        if ch_choice.lower() in ("q", "quit", "cancel"):
-                            print("[*] Cancelled.")
-                            return None
-                        chapter_range = ch_choice if ch_choice else "all"
-
-                    downloader = cls(target_url=title_url, **opts)
-                    downloader.run(chapter_range=chapter_range)
-                    return downloader
+                if choice.lower() in ("a", "all"):
+                    selected_items = results
+                elif "," in choice or "-" in choice:
+                    selected_indexes = parse_chapter_spec(choice)
+                    selected_items = [it for idx, it in enumerate(results, 1) if idx in selected_indexes]
+                    if not selected_items:
+                        print(f"[!] No valid series matched '{choice}'.")
+                        continue
+                elif choice.isdigit() and 1 <= int(choice) <= len(results):
+                    selected_items = [results[int(choice) - 1]]
                 else:
-                    print(f"[!] Invalid selection. Please enter 1 to {len(results)} or 'q'.")
+                    print(f"[!] Invalid selection. Please enter 1 to {len(results)}, 'a' for all, or 'q'.")
+                    continue
+
+                opts = downloader_options.copy() if downloader_options else {}
+                opts["cookie_file"] = c_file
+                chapter_range = opts.pop("chapter_range", None)
+                if not chapter_range:
+                    ch_choice = input("\n[?] Enter chapters to download (e.g. 'all', '1-5', 'latest', '10+') [default: all]: ").strip()
+                    if ch_choice.lower() in ("q", "quit", "cancel"):
+                        print("[*] Cancelled.")
+                        return None
+                    chapter_range = ch_choice if ch_choice else "all"
+
+                for idx, selected in enumerate(selected_items, 1):
+                    title_url = selected.get("url") or f"/title/{selected.get('hid')}"
+                    if len(selected_items) > 1:
+                        print(f"\n[{idx}/{len(selected_items)}] 📚 Downloading: {selected.get('title')} ({title_url})")
+                    else:
+                        print(f"\n[*] Selected: {selected.get('title')} ({title_url})")
+
+                    try:
+                        downloader = cls(target_url=title_url, **opts)
+                        downloader.run(chapter_range=chapter_range)
+                    except Exception as ex:
+                        print(f"    [!] Error downloading '{selected.get('title')}': {ex}")
+
+                return selected_items
         finally:
             api.close()

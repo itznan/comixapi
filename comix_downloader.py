@@ -88,6 +88,7 @@ Examples:
     parser.add_argument("--trending", dest="trending_flag", action="store_true", help="Browse trending titles (alternative to 'trending' command)")
     parser.add_argument("--days", type=int, choices=[1, 7, 30], default=1, help="Time window for trending/top titles in days: 1, 7, or 30 (default: 1)")
     parser.add_argument("--trend-type", choices=["trending", "follows"], default="trending", help="Trending discovery mode: 'trending' or 'follows' (default: 'trending')")
+    parser.add_argument("--auto-download", "--download-all", dest="auto_download", action="store_true", help="Automatically batch download all trending titles")
     parser.add_argument("--type", help="Filter search by comic type (manga, manhwa, manhua, other)")
     parser.add_argument("--status", help="Filter search by status (releasing, finished, on_hiatus, discontinued)")
     parser.add_argument("--genre", "--genres", dest="genres", help="Filter by genre(s), e.g. 'Action', 'fantasy', or 'action,adventure'")
@@ -182,6 +183,7 @@ Examples:
             days=args.days,
             limit=args.limit,
             interactive=not args.no_interactive,
+            auto_download=args.auto_download,
             cookie_file=args.cookies,
             downloader_options=opts
         )

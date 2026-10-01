@@ -186,7 +186,20 @@ class SearchMixin:
             self.bootstrap()
 
         url_path = "/manga/top"
-        params = {"type": type_filter, "days": days, "limit": limit}
+        trend_type = (type_filter or "trending").strip().lower()
+        if trend_type in ("follow", "following", "bookmarks"):
+            trend_type = "follows"
+        elif trend_type not in ("trending", "follows"):
+            trend_type = "trending"
+
+        # Comix.to supports days 1, 7, 30 for trending; 1, 7 for follows
+        valid_days = int(days) if str(days).isdigit() else 1
+        if trend_type == "follows" and valid_days > 7:
+            valid_days = 7
+        elif valid_days not in (1, 7, 30):
+            valid_days = 1 if valid_days < 4 else (7 if valid_days < 15 else 30)
+
+        params = {"type": trend_type, "days": valid_days, "limit": limit}
         signed = self.bridge.sign(url_path, params=params)
         qs = urllib.parse.urlencode(signed, doseq=True)
         full_url = f"{API_BASE}{url_path}?{qs}"

@@ -134,10 +134,13 @@ python comix_downloader.py trending --days 7 --limit 10
 # Discover most followed titles
 python comix_downloader.py trending --trend-type follows --days 7
 
+# Auto-download all top 10 trending series today
+python comix_downloader.py trending --days 1 --limit 10 --auto-download -c 1-3
+
 # Trending with specific download options (e.g. merge chapters 1-5)
 python comix_downloader.py trending -c 1-5 --merge
 
-# Non-interactive script output
+# Non-interactive script output (prints table of results without prompting)
 python comix_downloader.py trending --days 1 --no-interactive
 ```
 
@@ -244,6 +247,7 @@ python comix_downloader.py <URL_OR_SLUG> -o ./downloads/series -t 12
 | `--demographic`, `--demographics` | | Filter search by demographic (`shounen`, `seinen`, `shoujo`, `josei`) | `None` |
 | `--sort` | | Sort search order (`views_7d:desc`, `chapter_updated_at:desc`, `score:desc`) | Relevance |
 | `--limit` | | Maximum number of search/trending results to display | `10` |
+| `--auto-download` | | Automatically batch download all top trending titles found | `False` |
 | `--no-interactive`| | Print search/trending results table without download prompt | `False` |
 | `--list-groups` | | Display all scanlation groups that translated the title | `False` |
 | `--from-here` | | When passing a direct chapter URL, download from that chapter onwards | `False` |
