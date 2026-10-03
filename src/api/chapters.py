@@ -30,7 +30,7 @@ class ChapterMixin:
 
     def fetch_all_chapters(self) -> list:
         """Fetch and decrypt all chapters using API pagination."""
-        print(f"[*] Fetching chapters list...")
+        print("[*] Fetching chapters list...")
         all_chapters = []
         page = 1
         limit = 100

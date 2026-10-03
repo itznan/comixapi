@@ -252,7 +252,7 @@ class SyncMixin:
                     raw_chapters = downloader.api.fetch_all_chapters()
                     all_chapters = downloader.filter_and_deduplicate(raw_chapters, "all")
                     if not all_chapters:
-                        print(f"    [!] No readable chapters available.")
+                        print("    [!] No readable chapters available.")
                         continue
 
                     # Filter chapters that aren't already downloaded on disk
@@ -329,7 +329,7 @@ class SyncMixin:
             print(f"[*] Exporting Comix.to bookmarks in '{fmt.upper()}' format...")
             data = api.export_user_bookmarks(format_type=fmt)
             if not data:
-                print(f"[!] Export returned empty data.")
+                print("[!] Export returned empty data.")
                 return None
 
             if output_file:

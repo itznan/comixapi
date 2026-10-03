@@ -4,14 +4,14 @@ Provides REST endpoints for search, discovery, metadata, collections, user libra
 with CORS & CORP bypassing image proxy and SFW content filtering.
 """
 
-from typing import Optional, List, Any, Dict
+from typing import Optional, List
 from pathlib import Path
 import urllib.parse
 import urllib.request
 import urllib.error
 
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks, status
-from fastapi.responses import RedirectResponse, Response, JSONResponse
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
+from fastapi.responses import RedirectResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -981,11 +981,11 @@ app = create_app()
 def start_server(host: str = "127.0.0.1", port: int = 8000, reload: bool = False):
     """Start the Uvicorn ASGI server hosting ComixAPI with Swagger UI."""
     import uvicorn
-    print(f"\n==========================================================")
-    print(f"🚀 Starting ComixAPI Web Server with Swagger UI")
+    print("\n==========================================================")
+    print("🚀 Starting ComixAPI Web Server with Swagger UI")
     print(f"📌 Swagger UI Documentation: http://{host}:{port}/docs")
     print(f"📌 ReDoc Documentation:      http://{host}:{port}/redoc")
-    print(f"==========================================================\n")
+    print("==========================================================\n")
     target_app = "src.server:app" if reload else app
     uvicorn.run(target_app, host=host, port=port, reload=reload)
 

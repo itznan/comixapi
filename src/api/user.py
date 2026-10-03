@@ -6,7 +6,6 @@ import csv
 import io
 import json
 import urllib.parse
-from xml.sax.saxutils import escape as xml_escape
 from ..config import BASE_URL, API_BASE
 
 FOLDER_NAME_MAP = {

@@ -3,7 +3,7 @@ Manga search, trending discovery, category filtering, and scanlation group metad
 """
 
 import urllib.parse
-from typing import Any, Optional, List, Tuple
+from typing import Any
 from ..config import BASE_URL, API_BASE, GENRE_MAP, DEMOGRAPHIC_MAP
 
 
