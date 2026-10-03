@@ -16,7 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source
 COPY src/ ./src/
 COPY comix_signer.js .
-COPY comix_downloader.py .
 COPY main.py .
 
 # Create downloads volume mount point

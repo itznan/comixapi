@@ -7,7 +7,9 @@
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED.svg?logo=docker&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-High-performance, async-ready REST API and CLI toolkit for **comix.to**. Features interactive **Swagger UI / ReDoc**, full metadata extraction with **ComicInfo.xml** media server integration (Komga, Kavita, Calibre), **CBZ / PDF / EPUB** document compilation, multi-threaded downloads, and dynamic client-token security signing.
+Production-grade, asynchronous REST API for **comix.to**. Features interactive **Swagger UI & ReDoc**, catalog search & discovery, full metadata extraction with **ComicInfo.xml** media server integration (Komga, Kavita, Calibre), asynchronous **CBZ / PDF / EPUB** document compilation, image proxying, and automated security token computation.
+
+> Looking for the standalone command-line downloader? Check out [comix-downloader](../comix-downloader).
 
 ---
 
@@ -16,9 +18,7 @@ High-performance, async-ready REST API and CLI toolkit for **comix.to**. Feature
   - [Run with Docker Compose (Recommended)](#run-with-docker-compose-recommended)
   - [Run Locally](#run-locally)
 - [REST API Endpoints](#rest-api-endpoints)
-- [CLI Downloader Features](#cli-downloader-features)
-- [CLI Examples & Usage](#cli-examples--usage)
-- [Command-Line Options Reference](#command-line-options-reference)
+- [Interactive API Documentation](#interactive-api-documentation)
 - [Media Server & ComicInfo.xml Support](#media-server--comicinfoxml-support)
 - [Testing & Quality Assurance](#testing--quality-assurance)
 - [License](#license)
@@ -39,7 +39,7 @@ docker compose up -d
 * **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 * **Health Check:** [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
-Downloaded files and cached chapters persist in `./downloads`.
+Downloaded documents and cached images persist in `./downloads`.
 
 ---
 
@@ -59,14 +59,9 @@ Downloaded files and cached chapters persist in `./downloads`.
 
 3. **Start the API server:**
    ```bash
-   python main.py --server
+   python main.py
    # or
    uvicorn src.server:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-4. **Or run the CLI downloader:**
-   ```bash
-   python main.py search "Solo Leveling"
    ```
 
 ---
@@ -97,77 +92,20 @@ All responses follow standard HTTP semantics with CORS & CORP enabled for web ap
 
 ---
 
-## CLI Downloader Features
+## Interactive API Documentation
 
-- **Document Formats**: Export chapters as `.cbz` comic archives, `.pdf` files, or `.epub` books.
-- **Media Server ComicInfo.xml**: Automatically generates standard `ComicInfo.xml` metadata in every series directory for **Komga**, **Kavita**, and **Calibre**.
-- **Interactive Terminal Search**: Search directly from terminal (`search <query>`) with instant number selection.
-- **Trending Discovery**: Browse trending titles by views or follows (`trending --trend-type follows`).
-- **Account Follows & Library Sync**: Automatically check bookmarked reading lists (`--sync`) and download new chapters.
-- **Smart Deduplication**: Automatically picks the highest-voted scanlation group to prevent duplicate chapter numbers.
-- **Flexible Ranges**: Specify `-c 1-10`, `-c 1,3,5`, `-c latest`, or `-c 20+`.
-- **Aria2 Acceleration**: Automatically accelerates multi-connection parallel image downloads when `aria2c` is present.
-- **Merged Volume Support**: `--merge` compiles multiple chapters into a unified volume.
+Once the server is running, explore the interactive documentation:
 
----
-
-## CLI Examples & Usage
-
-### 1. Interactive Search
-```bash
-python main.py search "Solo Leveling"
-```
-
-### 2. Download Chapters as CBZ or PDF
-```bash
-# Download chapters 1 to 5 as CBZ comic archives
-python main.py https://comix.to/title/example-comic -c 1-5 --cbz
-
-# Download all chapters as PDF and merge into a single complete volume
-python main.py https://comix.to/title/example-comic -m
-```
-
-### 3. Sync Reading List
-```bash
-# Scan bookmarks and download newly released unread chapters
-python main.py --sync --unread-only
-```
-
-### 4. Export Bookmarks
-```bash
-# Export bookmarks to MyAnimeList XML
-python main.py --export-bookmarks mal
-```
-
----
-
-## Command-Line Options Reference
-
-| Option | Short | Description | Default |
-|---|---|---|---|
-| `target` | | Comic URL / slug, or `search`, `trending`, `collection`, `sync` | *Required* |
-| `--format` | | Document format (`pdf`, `cbz`, `epub`, `both`) | `pdf` |
-| `--cbz` | | Shortcut to export chapters as `.cbz` archives | `False` |
-| `--epub` | | Shortcut to export chapters as `.epub` books | `False` |
-| `--chapters` | `-c` | Chapters to download (`all`, `1-5`, `1,3,5`, `latest`, `10+`) | `all` |
-| `--merge` | `-m` | Merge chapters into one combined PDF or CBZ | `False` |
-| `--sync` | | Check reading list and download new/missing chapters | `False` |
-| `--unread-only` | | Only download unread chapters when syncing | `False` |
-| `--folder` | | Filter reading list by folder (`reading`, `completed`, etc.) | `None` |
-| `--export-bookmarks`| | Export reading list (`mal`, `anilist`, `csv`, `json`) | `mal` |
-| `--trending` | | Browse trending titles (`--days 1`, `7`, `30`) | `False` |
-| `--output` | `-o` | Output directory | `./downloads/{Title}` |
-| `--lang` | `-l` | Filter chapters by language | `en` |
-| `--threads` | `-t` | Concurrent download threads | `8` |
-| `--aria2` | | Force use aria2c for accelerated downloading | Auto-detected |
-| `--cookies` | | Path to cookie file for private titles | Auto-discovered |
-| `--no-comicinfo` | | Disable generating ComicInfo.xml metadata | `False` |
+* **Swagger UI:** `http://localhost:8000/docs`
+  * Test queries, inspect response schemas, and execute requests directly from the browser.
+* **ReDoc:** `http://localhost:8000/redoc`
+  * Clean, comprehensive, and searchable API documentation.
 
 ---
 
 ## Media Server & ComicInfo.xml Support
 
-Every series download automatically includes a standardized `ComicInfo.xml` compatible with all major comic media servers:
+Every downloaded series automatically includes a standardized `ComicInfo.xml` compatible with all major comic media servers:
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
