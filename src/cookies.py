@@ -59,21 +59,66 @@ def resolve_cookies(cookie_override: str = "") -> str:
 
 def test_cookies(cookie_header: str = "") -> dict:
     """Test if the provided or discovered cookies bypass Cloudflare and can access Comix.to."""
+    try:
+        from .config import USER_AGENT, BASE_URL
+    except (ImportError, ValueError):
+        from src.config import USER_AGENT, BASE_URL
+
+    try:
+        from curl_cffi import requests as cffi_requests
+        has_cffi = True
+    except ImportError:
+        cffi_requests = None
+        has_cffi = False
+
     import urllib.request
     import urllib.error
 
     resolved = resolve_cookies(cookie_header)
-    url = "https://comix.to"
-    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    url = BASE_URL
 
     headers = {
-        "User-Agent": user_agent,
+        "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Referer": url,
     }
     if resolved:
         headers["Cookie"] = resolved
 
+    # 1. Try with curl_cffi browser impersonation
+    if has_cffi and cffi_requests:
+        try:
+            resp = cffi_requests.get(
+                url,
+                headers=headers,
+                impersonate="chrome124",
+                timeout=12,
+                allow_redirects=True
+            )
+            body = resp.text
+            has_cfg = 'name="cfg"' in body or "initial-data" in body
+            success = resp.status_code == 200 and has_cfg
+            msg = (
+                "Cookies are valid! Cloudflare bypassed successfully."
+                if success
+                else (
+                    "HTTP 403 Forbidden: Cloudflare challenge required. Cookies are missing or expired."
+                    if resp.status_code == 403
+                    else f"Connected (HTTP {resp.status_code}), but session token missing."
+                )
+            )
+            return {
+                "success": success,
+                "status_code": resp.status_code,
+                "has_cfg_token": has_cfg,
+                "cookie_length": len(resolved),
+                "transport": "curl_cffi",
+                "message": msg
+            }
+        except Exception:
+            pass
+
+    # 2. Fallback to urllib.request
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=12) as resp:
@@ -85,6 +130,7 @@ def test_cookies(cookie_header: str = "") -> dict:
                 "status_code": status,
                 "has_cfg_token": has_cfg,
                 "cookie_length": len(resolved),
+                "transport": "urllib",
                 "message": "Cookies are valid! Cloudflare bypassed successfully." if (status == 200 and has_cfg) else f"Connected (HTTP {status}), but session token missing."
             }
     except urllib.error.HTTPError as e:
@@ -93,12 +139,14 @@ def test_cookies(cookie_header: str = "") -> dict:
                 "success": False,
                 "status_code": 403,
                 "cookie_length": len(resolved),
+                "transport": "urllib",
                 "message": "HTTP 403 Forbidden: Cloudflare challenge required. Cookies are missing or expired."
             }
         return {
             "success": False,
             "status_code": e.code,
             "cookie_length": len(resolved),
+            "transport": "urllib",
             "message": f"HTTP Error {e.code}: {e.reason}"
         }
     except Exception as e:
@@ -106,6 +154,7 @@ def test_cookies(cookie_header: str = "") -> dict:
             "success": False,
             "status_code": None,
             "cookie_length": len(resolved),
+            "transport": "urllib",
             "message": f"Connection error: {str(e)}"
         }
 

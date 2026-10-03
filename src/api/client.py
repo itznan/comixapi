@@ -8,6 +8,14 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse, urljoin
 import urllib.request
+import urllib.error
+
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    cffi_requests = None
+    HAS_CURL_CFFI = False
 
 from ..config import USER_AGENT, BASE_URL
 from ..bridge import NodeSignerBridge
@@ -52,10 +60,38 @@ class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
         if extra_headers:
             headers.update(extra_headers)
 
-        req = urllib.request.Request(url, headers=headers)
         last_err = None
         for attempt in range(retries):
+            # 1. Prefer lightweight curl_cffi with browser TLS impersonation
+            if HAS_CURL_CFFI and cffi_requests:
+                try:
+                    resp = cffi_requests.get(
+                        url,
+                        headers=headers,
+                        impersonate="chrome124",
+                        timeout=15,
+                        allow_redirects=True
+                    )
+                    if resp.status_code == 403:
+                        raise urllib.error.HTTPError(url, 403, "Forbidden", resp.headers, None)
+                    if resp.status_code == 404:
+                        raise urllib.error.HTTPError(url, 404, "Not Found", resp.headers, None)
+                    if resp.status_code >= 400:
+                        raise urllib.error.HTTPError(url, resp.status_code, f"HTTP Error {resp.status_code}", resp.headers, None)
+
+                    if is_json:
+                        return resp.json()
+                    return resp.text
+                except urllib.error.HTTPError:
+                    raise
+                except Exception as e:
+                    last_err = e
+                    time.sleep(1.0 * (attempt + 1))
+                    continue
+
+            # 2. Fallback to standard urllib.request
             try:
+                req = urllib.request.Request(url, headers=headers)
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = resp.read()
                     if is_json:
@@ -64,6 +100,7 @@ class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
             except Exception as e:
                 last_err = e
                 time.sleep(1.0 * (attempt + 1))
+
         raise last_err or RuntimeError(f"Failed to fetch {url}")
 
     def parse_comic_url(self) -> str:
