@@ -19,7 +19,7 @@ try:
     from .config import USER_AGENT, BASE_URL
     from .api import ComixAPI
     from .downloader import ComixDownloader
-    from .cookies import find_default_cookies, parse_cookie_file
+    from .cookies import find_default_cookies, parse_cookie_file, resolve_cookies, test_cookies
     from .pdf import is_aria2c_available
 except (ImportError, ValueError):
     import sys
@@ -27,7 +27,7 @@ except (ImportError, ValueError):
     from src.config import USER_AGENT, BASE_URL
     from src.api import ComixAPI
     from src.downloader import ComixDownloader
-    from src.cookies import find_default_cookies, parse_cookie_file
+    from src.cookies import find_default_cookies, parse_cookie_file, resolve_cookies, test_cookies
     from src.pdf import is_aria2c_available
 
 
@@ -156,6 +156,53 @@ def format_search_item(item: dict) -> dict:
     }
 
 
+def raise_upstream_error(e: Exception, context: str = "") -> None:
+    """Normalize upstream HTTP and Cloudflare errors with appropriate status codes and actionable advice."""
+    if isinstance(e, HTTPException):
+        raise e
+
+    err = e
+    while err:
+        if isinstance(err, urllib.error.HTTPError):
+            if err.code == 403:
+                raise HTTPException(
+                    status_code=403,
+                    detail=(
+                        "Comix.to returned 403 Forbidden (Cloudflare challenge active or cookies expired). "
+                        "Please update your cookies in 'comix.to_cookies.txt', set the COOKIE_FILE / COMIX_COOKIE env var, "
+                        "or run 'python -m src.cookies' to inspect connectivity."
+                    )
+                )
+            if err.code == 404:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"{context} not found on Comix.to." if context else "Resource not found on Comix.to."
+                )
+            raise HTTPException(
+                status_code=err.code,
+                detail=f"Upstream Comix.to error ({err.code}): {err.reason}"
+            )
+        err = getattr(err, "__cause__", None) or getattr(err, "__context__", None)
+
+    err_str = str(e).lower()
+    if "403" in err_str or "forbidden" in err_str or "cloudflare" in err_str:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Comix.to returned 403 Forbidden (Cloudflare protection active or cookies expired). "
+                "Please update your cookies in 'comix.to_cookies.txt' or set the COOKIE_FILE / COMIX_COOKIE env var. "
+                "Run 'python -m src.cookies' to inspect connectivity."
+            )
+        )
+    if "not found" in err_str or "404" in err_str:
+        raise HTTPException(
+            status_code=404,
+            detail=f"{context} not found on Comix.to." if context else "Resource not found on Comix.to."
+        )
+
+    raise HTTPException(status_code=500, detail=f"{context}: {str(e)}" if context else str(e))
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application instance with Swagger UI."""
     app = FastAPI(
@@ -266,7 +313,8 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     def health_check():
         """Check server status, aria2c availability, and active cookie configuration."""
         cookie_file = find_default_cookies()
-        has_cookies = bool(cookie_file and Path(cookie_file).exists() and Path(cookie_file).stat().st_size > 0)
+        cookie_data = resolve_cookies()
+        has_cookies = bool(cookie_data and len(cookie_data) > 0)
         return {
             "status": "healthy",
             "version": "1.0.0",
@@ -275,6 +323,25 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             "aria2_accelerator": is_aria2c_available(),
             "authenticated_session": has_cookies,
             "cookie_file": cookie_file if has_cookies else None
+        }
+
+    @app.get(
+        "/api/cookies/status",
+        tags=["System"],
+        summary="Check Comix.to Cookie & Cloudflare Bypass Status"
+    )
+    def check_cookies_status():
+        """Tests live connectivity to Comix.to using currently configured cookies."""
+        cookie_data = resolve_cookies()
+        result = test_cookies(cookie_data)
+        cookie_file = find_default_cookies()
+        return {
+            "has_cookie_configured": bool(cookie_data),
+            "cookie_source": cookie_file if cookie_file else ("env:COMIX_COOKIE" if cookie_data else "none"),
+            "cookie_length": len(cookie_data),
+            "cloudflare_bypassed": result["success"],
+            "status_code": result["status_code"],
+            "message": result["message"]
         }
 
     # ---------------------------------------------------------
@@ -736,7 +803,7 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Failed to retrieve manga '{slug_or_id}': {str(e)}")
+            raise_upstream_error(e, context=f"Manga '{slug_or_id}'")
         finally:
             api.close()
 
@@ -799,7 +866,7 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             finally:
                 downloader.api.close()
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch chapters: {str(e)}")
+            raise_upstream_error(e, context=f"Chapters for '{slug_or_id}'")
         finally:
             api.close()
 
@@ -835,7 +902,7 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     )
     def get_manga_groups(slug_or_id: str):
         """List all scanlation groups and translation teams that contributed to this comic."""
-        c_header = parse_cookie_file(find_default_cookies())
+        c_header = resolve_cookies()
         api = ComixAPI(slug_or_id, cookie_header=c_header)
         try:
             api.bootstrap()
@@ -846,7 +913,7 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
                 "groups": groups
             }
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to fetch groups: {str(e)}")
+            raise_upstream_error(e, context=f"Groups for '{slug_or_id}'")
         finally:
             api.close()
 

@@ -96,3 +96,13 @@ def test_api_collection():
         data = resp.json()
         assert data["count"] == 1
         assert data["items"][0]["title"] == "Dungeon Comic 1"
+
+
+def test_api_cookies_status():
+    """Verify cookies status endpoint returns diagnostic object."""
+    resp = client.get("/api/cookies/status")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "has_cookie_configured" in data
+    assert "cloudflare_bypassed" in data
+    assert "status_code" in data
