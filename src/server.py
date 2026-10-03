@@ -81,7 +81,7 @@ def is_nsfw_item(item: dict) -> bool:
     genres = item.get("genres", [])
     if isinstance(genres, list):
         for g in genres:
-            g_name = (g.get("name", "") if isinstance(g, dict) else str(g)).strip().lower()
+            g_name = ((g.get("name") or g.get("title") or "") if isinstance(g, dict) else str(g)).strip().lower()
             if g_name in ("hentai", "erotica", "smut", "mature", "ecchi", "adult", "18+"):
                 return True
 
@@ -89,7 +89,7 @@ def is_nsfw_item(item: dict) -> bool:
     tags = item.get("tags", [])
     if isinstance(tags, list):
         for t in tags:
-            t_name = (t.get("name", "") if isinstance(t, dict) else str(t)).strip().lower()
+            t_name = ((t.get("name") or t.get("title") or "") if isinstance(t, dict) else str(t)).strip().lower()
             if t_name in ("hentai", "erotica", "smut", "mature", "ecchi", "adult", "18+"):
                 return True
 
@@ -118,9 +118,11 @@ def format_home_item(item: dict) -> dict:
     genre_names = []
     if isinstance(raw_genres, list):
         for g in raw_genres:
-            if isinstance(g, dict) and "name" in g:
-                genre_names.append(g["name"])
-            elif isinstance(g, str):
+            if isinstance(g, dict):
+                g_val = g.get("name") or g.get("title")
+                if g_val:
+                    genre_names.append(g_val)
+            elif isinstance(g, str) and g:
                 genre_names.append(g)
 
     return {
@@ -330,15 +332,19 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         tags=["Comix Manga API"],
         summary="Home: Popular & Latest Updates"
     )
-    def get_manga_home(sfw: bool = Query(False, description="Filter out mature/NSFW content")):
+    def get_manga_home(
+        sfw: bool = Query(False, description="Filter out mature/NSFW content"),
+        nsfw: Optional[bool] = Query(None, description="Set to false to filter out mature/NSFW content")
+    ):
         """Fetches the 'Most Recent Popular' and 'Latest Updates' from the homepage."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
+        is_sfw = sfw or (nsfw is False)
         try:
             raw_popular = api.get_top_titles(type_filter="trending", days=1, limit=15)
             raw_latest = api.search_titles(sort="latest", limit=15)
 
-            if sfw:
+            if is_sfw:
                 raw_popular = [p for p in raw_popular if not is_nsfw_item(p)]
                 raw_latest = [l for l in raw_latest if not is_nsfw_item(l)]
 
@@ -362,11 +368,16 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     def search_manga_advanced(
         q: str = Query("", description="The search query"),
         sfw: bool = Query(False, description="Filter out NSFW content"),
+        nsfw: Optional[bool] = Query(None, description="Set to false to filter out NSFW content"),
         types: Optional[List[str]] = Query(None, alias="types[]"),
+        type: Optional[str] = Query(None, description="Comic type filter (e.g. 'manga', 'manhwa')"),
         status: Optional[str] = Query(None, description="Filter status: releasing, finished, on_hiatus, etc."),
         genres: Optional[List[str]] = Query(None, alias="genres[]"),
+        genre: Optional[str] = Query(None, description="Comma-separated genres, e.g. 'action,fantasy'"),
         content_rating: Optional[List[str]] = Query(None, alias="content_rating[]"),
         demographic: Optional[List[str]] = Query(None, alias="demographic[]"),
+        demographics: Optional[str] = Query(None, description="Comma-separated demographics"),
+        sort: Optional[str] = Query(None, description="Sort order: views, rating, latest, newest"),
         year_from: Optional[int] = Query(None, description="Starting release year"),
         year_to: Optional[int] = Query(None, description="Ending release year"),
         page: int = Query(1, ge=1, description="Page number"),
@@ -375,26 +386,40 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         """Searches for mangas based on a keyword with advanced type, genre, demographic, and rating filters."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
+        is_sfw = sfw or (nsfw is False)
         try:
+            resolved_types = list(types) if types else []
+            if type:
+                resolved_types.extend([t.strip() for t in type.split(",") if t.strip()])
+
+            resolved_genres = list(genres) if genres else []
+            if genre:
+                resolved_genres.extend([g.strip() for g in genre.split(",") if g.strip()])
+
+            resolved_demos = list(demographic) if demographic else []
+            if demographics:
+                resolved_demos.extend([d.strip() for d in demographics.split(",") if d.strip()])
+
             cr = content_rating
-            if sfw and not cr:
+            if is_sfw and not cr:
                 cr = ["safe", "suggestive"]
 
             raw_items, meta = api.search_titles(
                 keyword=q,
                 limit=limit,
                 page=page,
-                manga_type=types,
+                manga_type=resolved_types if resolved_types else None,
                 status=status,
-                genres=genres,
-                demographics=demographic,
+                genres=resolved_genres if resolved_genres else None,
+                demographics=resolved_demos if resolved_demos else None,
                 content_ratings=cr,
+                sort=sort,
                 year_from=year_from,
                 year_to=year_to,
                 return_meta=True
             )
 
-            if sfw:
+            if is_sfw:
                 raw_items = [it for it in raw_items if not is_nsfw_item(it)]
 
             results = [format_search_item(it) for it in raw_items]
@@ -420,28 +445,41 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     )
     def browse_manga(
         sfw: bool = Query(False, description="Filter out NSFW content"),
+        nsfw: Optional[bool] = Query(None, description="Set to false to filter out NSFW content"),
+        sort: Optional[str] = Query("newest", description="Sort order (default: 'newest')"),
         page: int = Query(1, ge=1, description="Page number"),
         limit: int = Query(20, ge=1, le=50, description="Items per page"),
         types: Optional[List[str]] = Query(None, alias="types[]"),
+        type: Optional[str] = Query(None, description="Comic type filter (e.g. 'manga', 'manhwa')"),
         status: Optional[str] = Query(None, description="Status filter"),
-        demographic: Optional[List[str]] = Query(None, alias="demographic[]")
+        demographic: Optional[List[str]] = Query(None, alias="demographic[]"),
+        demographics: Optional[str] = Query(None, description="Demographic filter")
     ):
-        """Browse manga sorted by newest by default. Supports sfw filter."""
+        """Browse manga sorted by newest by default. Supports sfw/nsfw and custom sort filters."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
+        is_sfw = sfw or (nsfw is False)
         try:
-            cr = ["safe", "suggestive"] if sfw else None
+            resolved_types = list(types) if types else []
+            if type:
+                resolved_types.extend([t.strip() for t in type.split(",") if t.strip()])
+
+            resolved_demos = list(demographic) if demographic else []
+            if demographics:
+                resolved_demos.extend([d.strip() for d in demographics.split(",") if d.strip()])
+
+            cr = ["safe", "suggestive"] if is_sfw else None
             raw_items, meta = api.search_titles(
-                sort="newest",
+                sort=sort or "newest",
                 limit=limit,
                 page=page,
-                manga_type=types,
+                manga_type=resolved_types if resolved_types else None,
                 status=status,
-                demographics=demographic,
+                demographics=resolved_demos if resolved_demos else None,
                 content_ratings=cr,
                 return_meta=True
             )
-            if sfw:
+            if is_sfw:
                 raw_items = [it for it in raw_items if not is_nsfw_item(it)]
 
             return {
@@ -463,40 +501,57 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     )
     def filter_manga(
         genres: Optional[str] = Query(None, description="Comma-separated genres, e.g. action,adventure"),
+        genre: Optional[str] = Query(None, description="Alternative singular genre parameter"),
         genres_list: Optional[List[str]] = Query(None, alias="genres[]"),
         types: Optional[List[str]] = Query(None, alias="types[]"),
+        type: Optional[str] = Query(None, description="Comic type filter"),
         status: Optional[str] = Query(None, description="Status filter"),
         demographic: Optional[List[str]] = Query(None, alias="demographic[]"),
+        demographics: Optional[str] = Query(None, description="Demographic filter"),
         content_rating: Optional[List[str]] = Query(None, alias="content_rating[]"),
+        sort: Optional[str] = Query(None, description="Sort order"),
         sfw: bool = Query(False, description="Filter out NSFW content"),
+        nsfw: Optional[bool] = Query(None, description="Set to false to filter out NSFW content"),
         page: int = Query(1, ge=1, description="Page number"),
         limit: int = Query(20, ge=1, le=50, description="Items per page")
     ):
         """Filter manga requiring specific criteria (e.g. genres). Supports sfw filter."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
+        is_sfw = sfw or (nsfw is False)
         try:
             resolved_genres = []
             if genres:
                 resolved_genres.extend([g.strip() for g in genres.split(",") if g.strip()])
+            if genre:
+                resolved_genres.extend([g.strip() for g in genre.split(",") if g.strip()])
             if genres_list:
                 resolved_genres.extend(genres_list)
 
+            resolved_types = list(types) if types else []
+            if type:
+                resolved_types.extend([t.strip() for t in type.split(",") if t.strip()])
+
+            resolved_demos = list(demographic) if demographic else []
+            if demographics:
+                resolved_demos.extend([d.strip() for d in demographics.split(",") if d.strip()])
+
             cr = content_rating
-            if sfw and not cr:
+            if is_sfw and not cr:
                 cr = ["safe", "suggestive"]
 
             raw_items, meta = api.search_titles(
                 genres=resolved_genres if resolved_genres else None,
-                manga_type=types,
+                manga_type=resolved_types if resolved_types else None,
                 status=status,
-                demographics=demographic,
+                demographics=resolved_demos if resolved_demos else None,
                 content_ratings=cr,
+                sort=sort,
                 limit=limit,
                 page=page,
                 return_meta=True
             )
-            if sfw:
+            if is_sfw:
                 raw_items = [it for it in raw_items if not is_nsfw_item(it)]
 
             return {
@@ -539,6 +594,15 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             raise HTTPException(status_code=500, detail=f"Failed to fetch chapter images: {str(e)}")
         finally:
             api.close()
+
+    @app.get(
+        "/api/chapter/{chapter_id}/pages",
+        tags=["Comix Manga API"],
+        summary="Decrypted Chapter Image URLs (Proxied)"
+    )
+    def get_chapter_pages_endpoint(chapter_id: str):
+        """Fetch decrypted chapter image pages by chapter ID wrapped in image proxy."""
+        return read_chapter_images(chapterId=chapter_id)
 
     @app.get(
         "/api/manga/collections/{id}",
@@ -631,19 +695,19 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             scan_groups = [
                 {
                     "scanlation_group_id": g.get("id"),
-                    "name": g.get("name")
+                    "name": g.get("name") or g.get("title")
                 }
                 for g in groups if isinstance(g, dict)
             ]
 
             raw_authors = meta.get("authors", [])
-            authors_str = ", ".join(a.get("name", "") if isinstance(a, dict) else str(a) for a in raw_authors) if isinstance(raw_authors, list) else str(raw_authors)
+            authors_str = ", ".join((a.get("name") or a.get("title", "")) if isinstance(a, dict) else str(a) for a in raw_authors) if isinstance(raw_authors, list) else str(raw_authors)
 
             raw_artists = meta.get("artists", [])
-            artists_str = ", ".join(a.get("name", "") if isinstance(a, dict) else str(a) for a in raw_artists) if isinstance(raw_artists, list) else str(raw_artists)
+            artists_str = ", ".join((a.get("name") or a.get("title", "")) if isinstance(a, dict) else str(a) for a in raw_artists) if isinstance(raw_artists, list) else str(raw_artists)
 
             raw_genres = meta.get("genres", [])
-            genres_list = [g.get("name") if isinstance(g, dict) else str(g) for g in raw_genres] if isinstance(raw_genres, list) else []
+            genres_list = [(g.get("name") or g.get("title")) if isinstance(g, dict) else str(g) for g in raw_genres] if isinstance(raw_genres, list) else []
 
             demo_val = meta.get("demographic") or meta.get("demographics") or ""
             demo_str = demo_val.get("name", "") if isinstance(demo_val, dict) else str(demo_val)
@@ -675,6 +739,18 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             raise HTTPException(status_code=404, detail=f"Failed to retrieve manga '{slug_or_id}': {str(e)}")
         finally:
             api.close()
+
+    @app.get(
+        "/api/title/{slug_or_id}",
+        tags=["Manga Details"],
+        summary="Comic Details & Metadata (Alias)"
+    )
+    def get_title_info(
+        slug_or_id: str,
+        sfw: bool = Query(False, description="Set to true to return 404 if the comic contains NSFW content")
+    ):
+        """Alias for /api/manga/{slug_or_id}."""
+        return get_manga_info(slug_or_id=slug_or_id, sfw=sfw)
 
     @app.get(
         "/api/manga/{slug_or_id}/chapters",
@@ -728,6 +804,31 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             api.close()
 
     @app.get(
+        "/api/title/{slug_or_id}/chapters",
+        tags=["Manga Details"],
+        summary="Get Manga Chapters List (Alias)"
+    )
+    def get_title_chapters(
+        slug_or_id: str,
+        lang: str = Query("en", description="Filter chapter language (default: 'en')"),
+        group: Optional[str] = Query(None, description="Filter by preferred scanlation group"),
+        range: str = Query("all", description="Chapter range spec (e.g. 'all', '1-10', 'latest')"),
+        page: int = Query(1, ge=1, description="Page number for pagination"),
+        limit: int = Query(30, ge=1, le=100, description="Items per page"),
+        scanlation_group_id: Optional[int] = Query(None, description="Scanlation group ID filter")
+    ):
+        """Alias for /api/manga/{slug_or_id}/chapters."""
+        return get_manga_chapters(
+            slug_or_id=slug_or_id,
+            lang=lang,
+            group=group,
+            range=range,
+            page=page,
+            limit=limit,
+            scanlation_group_id=scanlation_group_id
+        )
+
+    @app.get(
         "/api/manga/{slug_or_id}/groups",
         tags=["Manga Details"],
         summary="List Available Scanlation Groups"
@@ -749,6 +850,15 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         finally:
             api.close()
 
+    @app.get(
+        "/api/title/{slug_or_id}/groups",
+        tags=["Manga Details"],
+        summary="List Available Scanlation Groups (Alias)"
+    )
+    def get_title_groups(slug_or_id: str):
+        """Alias for /api/manga/{slug_or_id}/groups."""
+        return get_manga_groups(slug_or_id=slug_or_id)
+
     # ---------------------------------------------------------
     # Legacy Discovery Routes (Backwards Compatibility)
     # ---------------------------------------------------------
@@ -762,15 +872,19 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         type: Optional[str] = Query(None, description="Filter comic type: 'manga', 'manhwa', 'manhua', 'other'"),
         status: Optional[str] = Query(None, description="Filter status: 'releasing', 'finished', 'on_hiatus', 'discontinued'"),
         genres: Optional[str] = Query(None, description="Comma-separated genres, e.g. 'Action,Fantasy'"),
+        genre: Optional[str] = Query(None, description="Singular genre filter alias"),
         demographics: Optional[str] = Query(None, description="Comma-separated demographics, e.g. 'shounen,seinen'"),
+        demographic: Optional[str] = Query(None, description="Singular demographic filter alias"),
         sort: Optional[str] = Query(None, description="Sort order: 'views_7d:desc', 'chapter_updated_at:desc', 'score:desc'"),
         limit: int = Query(10, ge=1, le=50, description="Maximum number of titles to return")
     ):
         """Search titles by keyword and apply rich genre, demographic, and ranking filters."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
-        genre_list = [g.strip() for g in genres.split(",")] if genres else None
-        demo_list = [d.strip() for d in demographics.split(",")] if demographics else None
+        raw_genres = genres or genre
+        raw_demos = demographics or demographic
+        genre_list = [g.strip() for g in raw_genres.split(",")] if raw_genres else None
+        demo_list = [d.strip() for d in raw_demos.split(",")] if raw_demos else None
         try:
             results = api.search_titles(
                 keyword=q,
@@ -797,16 +911,18 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
     )
     def get_trending(
         trend_type: str = Query("trending", description="Discovery mode: 'trending' or 'follows'"),
+        type: Optional[str] = Query(None, description="Discovery mode alias: 'trending' or 'follows'"),
         days: int = Query(1, description="Time window in days: 1, 7, or 30 (follows max: 7)"),
         limit: int = Query(10, ge=1, le=50, description="Maximum titles to return")
     ):
         """Retrieve real-time trending comics or most followed titles over a daily, weekly, or monthly window."""
         c_header = parse_cookie_file(find_default_cookies())
         api = ComixAPI("", cookie_header=c_header)
+        active_type = type or trend_type
         try:
-            results = api.get_top_titles(type_filter=trend_type, days=days, limit=limit)
+            results = api.get_top_titles(type_filter=active_type, days=days, limit=limit)
             return {
-                "trend_type": trend_type,
+                "trend_type": active_type,
                 "days": days,
                 "count": len(results),
                 "items": results
@@ -841,6 +957,15 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         finally:
             api.close()
 
+    @app.get(
+        "/api/collection/{id}",
+        tags=["Collections"],
+        summary="Get Curated Collection Items (Alias)"
+    )
+    def get_collection_alias(id: str):
+        """Alias for /api/collections/{collection_id}."""
+        return get_collection(collection_id=id)
+
     # ---------------------------------------------------------
     # User Library & History (Authenticated)
     # ---------------------------------------------------------
@@ -872,6 +997,18 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             api.close()
 
     @app.get(
+        "/api/following",
+        tags=["User Account"],
+        summary="Get Bookmarked / Followed Titles (Alias)"
+    )
+    def get_following_titles_alias(
+        folder: Optional[str] = Query(None, description="Folder filter: 'reading', 'completed', 'paused', 'dropped', 'planning'"),
+        limit: int = Query(50, ge=1, le=100, description="Items per page")
+    ):
+        """Alias for /api/user/following."""
+        return get_following_titles(folder=folder, limit=limit)
+
+    @app.get(
         "/api/user/history",
         tags=["User Account"],
         summary="Get Reading History"
@@ -899,6 +1036,18 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             api.close()
 
     @app.get(
+        "/api/history",
+        tags=["User Account"],
+        summary="Get Reading History (Alias)"
+    )
+    def get_user_history_alias(
+        page: int = Query(1, ge=1, description="Page number"),
+        limit: int = Query(20, ge=1, le=50, description="Items per page")
+    ):
+        """Alias for /api/user/history."""
+        return get_user_history(page=page, limit=limit)
+
+    @app.get(
         "/api/user/export",
         tags=["User Account"],
         summary="Export Reading List (MAL, AniList, CSV, JSON)"
@@ -914,7 +1063,15 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         api = ComixAPI("", cookie_header=c_header)
         try:
             data = api.export_user_bookmarks(format_type=format)
-            media_type = "application/xml" if format in ("mal", "myanimelist") else ("application/json" if format in ("anilist", "json") else "text/plain")
+            fmt_clean = format.strip().lower()
+            if fmt_clean in ("mal", "myanimelist"):
+                media_type = "application/xml; charset=utf-8"
+            elif fmt_clean in ("anilist", "al", "json", "backup"):
+                media_type = "application/json; charset=utf-8"
+            elif fmt_clean == "csv":
+                media_type = "text/csv; charset=utf-8"
+            else:
+                media_type = "text/plain; charset=utf-8"
             return Response(content=data, media_type=media_type)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
@@ -944,12 +1101,26 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
         try:
             downloader.api.bootstrap()
             raw_chapters = downloader.api.fetch_all_chapters()
-            matching = [c for c in raw_chapters if c.get("number") == req.chapter_number]
+
+            def _match_ch(c, num):
+                n = c.get("number")
+                if n is None:
+                    return False
+                if n == num:
+                    return True
+                try:
+                    return float(n) == float(num)
+                except (ValueError, TypeError):
+                    return False
+
+            matching = [c for c in raw_chapters if _match_ch(c, req.chapter_number)]
             if not matching:
                 raise HTTPException(status_code=404, detail=f"Chapter {req.chapter_number} not found for '{req.manga}'.")
 
             # Run download
-            target_folder = output_dir / downloader.api.manga_slug
+            from .utils import sanitize_filename
+            slug_or_title = downloader.api.manga_title or downloader.api.manga_slug or "manga"
+            target_folder = output_dir / sanitize_filename(slug_or_title)
             target_folder.mkdir(parents=True, exist_ok=True)
             saved_file = downloader.download_chapter(matching[0], target_folder)
 
@@ -969,6 +1140,61 @@ This RESTful service acts as a complete wrapper and CORS proxy for the Comix man
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+        finally:
+            downloader.api.close()
+
+    @app.post(
+        "/api/download/series",
+        tags=["Downloader"],
+        summary="Download Multiple Chapters or Full Series (CBZ, PDF, EPUB)"
+    )
+    def download_series_endpoint(
+        req: DownloadSeriesRequest,
+        background_tasks: BackgroundTasks
+    ):
+        """Trigger multi-chapter or series download and optional volume merge into CBZ, PDF, or EPUB."""
+        output_dir = Path("./downloads")
+        downloader = ComixDownloader(
+            target_url=req.manga,
+            output_dir=str(output_dir),
+            preferred_group=req.preferred_group,
+            export_format=req.format,
+            merge_all=req.merge
+        )
+        try:
+            downloader.api.bootstrap()
+            raw_chapters = downloader.api.fetch_all_chapters()
+            chapters = downloader.filter_and_deduplicate(raw_chapters, chapter_range_spec=req.chapter_range)
+            if not chapters:
+                raise HTTPException(status_code=404, detail=f"No chapters found matching range '{req.chapter_range}' for '{req.manga}'.")
+
+            from .utils import sanitize_filename
+            slug_or_title = downloader.api.manga_title or downloader.api.manga_slug or "manga"
+            target_folder = output_dir / sanitize_filename(slug_or_title)
+            target_folder.mkdir(parents=True, exist_ok=True)
+
+            downloaded_files = []
+            for ch in chapters:
+                saved = downloader.download_chapter(ch, target_folder)
+                if saved and saved.exists():
+                    downloaded_files.append(saved)
+
+            if not downloaded_files:
+                raise HTTPException(status_code=500, detail="Failed to compile series chapters.")
+
+            return {
+                "success": True,
+                "manga": downloader.api.manga_title or req.manga,
+                "chapter_range": req.chapter_range,
+                "format": req.format,
+                "total_downloaded": len(downloaded_files),
+                "folder_path": str(target_folder.resolve()),
+                "files": [f.name for f in downloaded_files]
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Series download failed: {str(e)}")
         finally:
             downloader.api.close()
 

@@ -103,12 +103,12 @@ class CollectionMixin:
             # Check pagination metadata
             meta = {}
             if isinstance(decrypted, dict):
-                res = decrypted.get("result", {})
-                if isinstance(res, dict):
-                    meta = res.get("meta", {})
+                meta = decrypted.get("meta") or {}
+                if not meta and isinstance(decrypted.get("result"), dict):
+                    meta = decrypted["result"].get("meta", {})
 
-            has_next = meta.get("hasNext")
-            last_page = meta.get("lastPage", page)
+            has_next = meta.get("hasNext") if "hasNext" in meta else meta.get("has_next")
+            last_page = meta.get("lastPage") or meta.get("last_page") or page
             if has_next is False or page >= last_page:
                 break
             page += 1

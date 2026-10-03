@@ -75,6 +75,8 @@ class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
         if not url.startswith("http"):
             if url.startswith("/"):
                 url = f"{BASE_URL}{url}"
+            elif url.startswith("title/"):
+                url = f"{BASE_URL}/{url}"
             else:
                 url = f"{BASE_URL}/title/{url}"
 
@@ -227,4 +229,8 @@ class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
     def close(self):
         """Release bridge process and resources."""
         if self.bridge:
-            self.bridge.close()
+            try:
+                self.bridge.close()
+            except Exception:
+                pass
+            self.bridge = None

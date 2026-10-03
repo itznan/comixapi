@@ -48,30 +48,30 @@ def generate_comic_info_xml(
             summary_elem.text = clean_synopsis
 
     # Authors & Artists
-    authors = [a.get("title") for a in manga_metadata.get("authors", []) if a.get("title")]
+    authors = [(a.get("title") or a.get("name")) for a in manga_metadata.get("authors", []) if isinstance(a, dict) and (a.get("title") or a.get("name"))]
     if authors:
         writer_elem = ET.SubElement(root, "Writer")
         writer_elem.text = ", ".join(authors)
 
-    artists = [a.get("title") for a in manga_metadata.get("artists", []) if a.get("title")]
+    artists = [(a.get("title") or a.get("name")) for a in manga_metadata.get("artists", []) if isinstance(a, dict) and (a.get("title") or a.get("name"))]
     if artists:
         penciller_elem = ET.SubElement(root, "Penciller")
         penciller_elem.text = ", ".join(artists)
 
     # Publishers
-    publishers = [p.get("title") for p in manga_metadata.get("publishers", []) if p.get("title")]
+    publishers = [(p.get("title") or p.get("name")) for p in manga_metadata.get("publishers", []) if isinstance(p, dict) and (p.get("title") or p.get("name"))]
     if publishers:
         pub_elem = ET.SubElement(root, "Publisher")
         pub_elem.text = ", ".join(publishers)
 
     # Genres & Tags
-    genres = [g.get("title") for g in manga_metadata.get("genres", []) if g.get("title")]
+    genres = [(g.get("title") or g.get("name")) for g in manga_metadata.get("genres", []) if isinstance(g, dict) and (g.get("title") or g.get("name"))]
     if genres:
         genre_elem = ET.SubElement(root, "Genre")
         genre_elem.text = ", ".join(genres)
 
-    tags = [t.get("title") for t in manga_metadata.get("tags", []) if t.get("title")]
-    demographics = [d.get("title") for d in manga_metadata.get("demographics", []) if d.get("title")]
+    tags = [(t.get("title") or t.get("name")) for t in manga_metadata.get("tags", []) if isinstance(t, dict) and (t.get("title") or t.get("name"))]
+    demographics = [(d.get("title") or d.get("name")) for d in manga_metadata.get("demographics", []) if isinstance(d, dict) and (d.get("title") or d.get("name"))]
     all_tags = tags + demographics
     if all_tags:
         tags_elem = ET.SubElement(root, "Tags")

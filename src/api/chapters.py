@@ -30,6 +30,12 @@ class ChapterMixin:
 
     def fetch_all_chapters(self) -> list:
         """Fetch and decrypt all chapters using API pagination."""
+        if not self.bridge:
+            self.bootstrap()
+
+        if not self.manga_hid:
+            raise ValueError("Manga HID or URL must be set to fetch chapters.")
+
         print("[*] Fetching chapters list...")
         all_chapters = []
         page = 1
@@ -41,18 +47,25 @@ class ChapterMixin:
             qs = "&".join(f"{k}={v}" for k, v in signed_params.items())
             full_url = f"{API_BASE}{url_path}?{qs}"
 
+            referer = f"{BASE_URL}/title/{self.manga_slug}" if self.manga_slug else BASE_URL
             encrypted_json = self._http_get(full_url, is_json=True, extra_headers={
-                "Referer": f"{BASE_URL}/title/{self.manga_slug}"
+                "Referer": referer
             })
             decrypted = self.bridge.decrypt(url_path, encrypted_json)
-            items = decrypted.get("items", [])
+            items = self._extract_items(decrypted)
             if not items:
                 break
             all_chapters.extend(items)
 
-            meta = decrypted.get("meta", {})
-            last_page = meta.get("lastPage", 1)
-            if page >= last_page or not meta.get("hasNext", False):
+            meta = {}
+            if isinstance(decrypted, dict):
+                meta = decrypted.get("meta") or {}
+                if not meta and isinstance(decrypted.get("result"), dict):
+                    meta = decrypted["result"].get("meta", {})
+
+            last_page = meta.get("lastPage") or meta.get("last_page") or 1
+            has_next = meta.get("hasNext") if "hasNext" in meta else meta.get("has_next", False)
+            if page >= last_page or has_next is False:
                 break
             page += 1
 
@@ -61,24 +74,43 @@ class ChapterMixin:
 
     def fetch_chapter_pages(self, chapter: dict) -> list:
         """Fetch and decrypt images for a specific chapter."""
-        ch_id = str(chapter["id"])
+        if not self.bridge:
+            self.bootstrap()
+
+        ch_id = str(chapter.get("id") or chapter.get("hid") or "").strip()
+        if not ch_id:
+            return []
+
         url_path = f"/chapters/{ch_id}"
         signed_params = self.bridge.sign(url_path, chapter_id=ch_id)
         sig = signed_params.get("_", "")
         full_url = f"{API_BASE}{url_path}?_={sig}"
 
         ch_url = chapter.get("url", "")
-        referer = f"{BASE_URL}{ch_url}" if ch_url else f"{BASE_URL}/title/{self.manga_slug}"
+        referer = f"{BASE_URL}{ch_url}" if ch_url else (f"{BASE_URL}/title/{self.manga_slug}" if self.manga_slug else f"{BASE_URL}/chapter/{ch_id}")
 
         encrypted = self._http_get(full_url, is_json=True, extra_headers={"Referer": referer})
         decrypted = self.bridge.decrypt(url_path, encrypted, chapter_id=ch_id)
 
-        pages_obj = decrypted.get("pages", {})
+        pages_obj = {}
+        if isinstance(decrypted, dict):
+            pages_obj = decrypted.get("pages")
+            if not isinstance(pages_obj, dict):
+                res = decrypted.get("result") or decrypted.get("data") or decrypted.get("chapter")
+                if isinstance(res, dict):
+                    pages_obj = res.get("pages")
+            if not isinstance(pages_obj, dict):
+                pages_obj = {}
+
         base_url = pages_obj.get("baseUrl", "")
         items = pages_obj.get("items", [])
+        if not isinstance(items, list):
+            items = []
 
         img_urls = []
         for p in items:
+            if not isinstance(p, dict):
+                continue
             raw_url = p.get("url", "")
             if not raw_url:
                 continue
@@ -103,12 +135,25 @@ class ChapterMixin:
         encrypted = self._http_get(full_url, is_json=True, extra_headers={"Referer": referer})
         decrypted = self.bridge.decrypt(url_path, encrypted, chapter_id=ch_id)
 
-        pages_obj = decrypted.get("pages", {})
+        pages_obj = {}
+        if isinstance(decrypted, dict):
+            pages_obj = decrypted.get("pages")
+            if not isinstance(pages_obj, dict):
+                res = decrypted.get("result") or decrypted.get("data") or decrypted.get("chapter")
+                if isinstance(res, dict):
+                    pages_obj = res.get("pages")
+            if not isinstance(pages_obj, dict):
+                pages_obj = {}
+
         base_url = pages_obj.get("baseUrl", "")
         items = pages_obj.get("items", [])
+        if not isinstance(items, list):
+            items = []
 
         images = []
         for p in items:
+            if not isinstance(p, dict):
+                continue
             raw_url = p.get("url", "")
             if not raw_url:
                 continue
@@ -133,6 +178,9 @@ class ChapterMixin:
         if not self.bridge:
             self.bootstrap()
 
+        if not self.manga_hid:
+            raise ValueError("Manga HID or URL must be set to fetch chapters.")
+
         url_path = f"/manga/{self.manga_hid}/chapters"
         params = {"page": page, "limit": limit}
         if scanlation_group_id is not None:
@@ -142,30 +190,42 @@ class ChapterMixin:
         qs = "&".join(f"{k}={v}" for k, v in signed_params.items())
         full_url = f"{API_BASE}{url_path}?{qs}"
 
+        referer = f"{BASE_URL}/title/{self.manga_slug}" if self.manga_slug else BASE_URL
         encrypted_json = self._http_get(full_url, is_json=True, extra_headers={
-            "Referer": f"{BASE_URL}/title/{self.manga_slug}"
+            "Referer": referer
         })
         decrypted = self.bridge.decrypt(url_path, encrypted_json)
-        items = decrypted.get("items", [])
-        meta = decrypted.get("meta", {})
+        items = self._extract_items(decrypted)
+
+        meta = {}
+        if isinstance(decrypted, dict):
+            meta = decrypted.get("meta") or {}
+            if not meta and isinstance(decrypted.get("result"), dict):
+                meta = decrypted["result"].get("meta", {})
 
         formatted_chapters = []
         for ch in items:
-            group = ch.get("group") or ch.get("scanlation_group") or {}
+            if not isinstance(ch, dict):
+                continue
+            group = ch.get("group") or ch.get("scanlation_group") or ch.get("scanlationGroup") or {}
             ch_copy = ch.copy()
             if isinstance(group, dict) and group:
                 ch_copy["scanlation_group"] = {
                     "scanlation_group_id": group.get("id"),
-                    "name": group.get("name")
+                    "name": group.get("name") or group.get("title")
                 }
             formatted_chapters.append(ch_copy)
+
+        current_p = meta.get("page") or meta.get("currentPage") or page
+        last_p = meta.get("lastPage") or meta.get("last_page") or page
+        total_count = meta.get("total") or meta.get("totalCount") or len(formatted_chapters)
 
         return {
             "chapters": formatted_chapters,
             "pagination": {
-                "current_page": meta.get("page", page),
-                "last_page": meta.get("lastPage", page),
-                "total": meta.get("total", len(formatted_chapters)),
+                "current_page": current_p,
+                "last_page": last_p,
+                "total": total_count,
                 "limit": limit
             }
         }

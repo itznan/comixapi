@@ -25,7 +25,11 @@ def parse_cookie_file(cookie_path: str) -> str:
 
 
 def find_default_cookies() -> str:
-    """Search for comix.to_cookies.txt or cookies.txt in common project and working locations."""
+    """Search for comix.to_cookies.txt or cookies.txt in common project and working locations, or COOKIE_FILE env var."""
+    env_cookie = os.environ.get("COOKIE_FILE")
+    if env_cookie and Path(env_cookie).is_file():
+        return str(Path(env_cookie).resolve())
+
     cwd = Path.cwd()
     root_dir = Path(__file__).resolve().parent.parent
     candidates = [
