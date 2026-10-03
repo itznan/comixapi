@@ -1,22 +1,45 @@
-# Downloaded content
-downloads/
-.cache/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
 
-# Sensitive credentials
+# Caches and environments
+.cache/
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.env
+.venv
+venv/
+ENV/
+env/
+
+# Downloaded files & media
+downloads/
+*.pdf
+*.cbz
+*.epub
+comix_bookmarks_*
+
+# Sensitive credentials & cookies
 *.cookies.txt
 *_cookies.txt
 *cookies*.txt
 cookies.txt
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-venv/
-.env
-
-# Node
+# Node & frontend
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Exports & Backups
-comix_bookmarks_*
+# IDE & Editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

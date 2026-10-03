@@ -1,0 +1,15 @@
+version: "3.8"
+
+services:
+  api:
+    build: .
+    container_name: comixapi
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./downloads:/app/downloads
+      # Optionally mount cookie file for authenticated requests:
+      # - ./comix.to_cookies.txt:/app/comix.to_cookies.txt:ro
