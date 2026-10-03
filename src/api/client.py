@@ -65,10 +65,16 @@ class ComixAPI(ChapterMixin, SearchMixin, UserMixin, CollectionMixin):
             # 1. Prefer lightweight curl_cffi with browser TLS impersonation
             if HAS_CURL_CFFI and cffi_requests:
                 try:
+                    cookie_dict = (
+                        {k.strip(): v.strip() for k, v in [c.split("=", 1) for c in self.cookie_header.split("; ") if "=" in c]}
+                        if self.cookie_header else None
+                    )
+                    cffi_headers = {k: v for k, v in headers.items() if k.lower() != "cookie"}
                     resp = cffi_requests.get(
                         url,
-                        headers=headers,
-                        impersonate="chrome124",
+                        headers=cffi_headers,
+                        cookies=cookie_dict,
+                        impersonate="chrome",
                         timeout=15,
                         allow_redirects=True
                     )

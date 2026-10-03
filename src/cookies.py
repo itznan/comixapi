@@ -57,11 +57,15 @@ def resolve_cookies(cookie_override: str = "") -> str:
     return ""
 
 
-def test_cookies(cookie_header: str = "") -> dict:
+def test_cookies(cookie_header: str = "", user_agent: str = "") -> dict:
     """Test if the provided or discovered cookies bypass Cloudflare and can access Comix.to."""
     try:
         from .config import USER_AGENT, BASE_URL
     except (ImportError, ValueError):
+        import sys
+        root = str(Path(__file__).resolve().parent.parent)
+        if root not in sys.path:
+            sys.path.insert(0, root)
         from src.config import USER_AGENT, BASE_URL
 
     try:
@@ -75,15 +79,20 @@ def test_cookies(cookie_header: str = "") -> dict:
     import urllib.error
 
     resolved = resolve_cookies(cookie_header)
+    ua = user_agent.strip() if user_agent and user_agent.strip() else (os.environ.get("USER_AGENT") or USER_AGENT)
     url = BASE_URL
 
     headers = {
-        "User-Agent": USER_AGENT,
+        "User-Agent": ua,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Referer": url,
     }
-    if resolved:
-        headers["Cookie"] = resolved
+
+    # Parse cookie string into key-value dict for native curl-impersonate HTTP/2 handling
+    cookie_dict = (
+        {k.strip(): v.strip() for k, v in [c.split("=", 1) for c in resolved.split("; ") if "=" in c]}
+        if resolved else None
+    )
 
     # 1. Try with curl_cffi browser impersonation
     if has_cffi and cffi_requests:
@@ -91,8 +100,9 @@ def test_cookies(cookie_header: str = "") -> dict:
             resp = cffi_requests.get(
                 url,
                 headers=headers,
-                impersonate="chrome124",
-                timeout=12,
+                cookies=cookie_dict,
+                impersonate="chrome",
+                timeout=15,
                 allow_redirects=True
             )
             body = resp.text
@@ -112,13 +122,16 @@ def test_cookies(cookie_header: str = "") -> dict:
                 "status_code": resp.status_code,
                 "has_cfg_token": has_cfg,
                 "cookie_length": len(resolved),
-                "transport": "curl_cffi",
+                "transport": "curl_cffi (impersonate=chrome)",
+                "user_agent": ua,
                 "message": msg
             }
         except Exception:
             pass
 
     # 2. Fallback to urllib.request
+    if resolved:
+        headers["Cookie"] = resolved
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=12) as resp:
@@ -131,6 +144,7 @@ def test_cookies(cookie_header: str = "") -> dict:
                 "has_cfg_token": has_cfg,
                 "cookie_length": len(resolved),
                 "transport": "urllib",
+                "user_agent": ua,
                 "message": "Cookies are valid! Cloudflare bypassed successfully." if (status == 200 and has_cfg) else f"Connected (HTTP {status}), but session token missing."
             }
     except urllib.error.HTTPError as e:
@@ -140,6 +154,7 @@ def test_cookies(cookie_header: str = "") -> dict:
                 "status_code": 403,
                 "cookie_length": len(resolved),
                 "transport": "urllib",
+                "user_agent": ua,
                 "message": "HTTP 403 Forbidden: Cloudflare challenge required. Cookies are missing or expired."
             }
         return {
@@ -147,6 +162,7 @@ def test_cookies(cookie_header: str = "") -> dict:
             "status_code": e.code,
             "cookie_length": len(resolved),
             "transport": "urllib",
+            "user_agent": ua,
             "message": f"HTTP Error {e.code}: {e.reason}"
         }
     except Exception as e:
@@ -155,18 +171,40 @@ def test_cookies(cookie_header: str = "") -> dict:
             "status_code": None,
             "cookie_length": len(resolved),
             "transport": "urllib",
+            "user_agent": ua,
             "message": f"Connection error: {str(e)}"
         }
 
 
 if __name__ == "__main__":
     import sys
+    import argparse
+
+    # Ensure UTF-8 stdout/stderr on Windows cmd/powershell
+    if sys.platform == "win32":
+        try:
+            if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+    # Ensure project root in sys.path
+    root_dir = str(Path(__file__).resolve().parent.parent)
+    if root_dir not in sys.path:
+        sys.path.insert(0, root_dir)
+
+    parser = argparse.ArgumentParser(description="Comix.to Cookie & Cloudflare Bypass Inspector")
+    parser.add_argument("cookie_file", nargs="?", default=None, help="Path to cookie file (optional)")
+    parser.add_argument("--ua", "--user-agent", dest="user_agent", default="", help="Exact User-Agent string from Chrome (navigator.userAgent)")
+    args = parser.parse_args()
 
     print("=" * 65)
     print("🍪 COMIX.TO COOKIE INSPECTOR & VALIDATOR")
     print("=" * 65)
 
-    target_file = sys.argv[1] if len(sys.argv) > 1 else find_default_cookies()
+    target_file = args.cookie_file if args.cookie_file else find_default_cookies()
     if target_file and os.path.exists(target_file):
         print(f"[*] Cookie File Found: {target_file}")
         cookie_data = parse_cookie_file(target_file)
@@ -179,18 +217,25 @@ if __name__ == "__main__":
         print("[!] No cookie file found at default locations (comix.to_cookies.txt, cookies.txt)")
         cookie_data = resolve_cookies()
 
+    active_ua = args.user_agent or os.environ.get("USER_AGENT") or "Chrome (Default Config)"
+    print(f"[*] Testing with UA:   {active_ua[:60]}...")
     print("[*] Testing live connection to https://comix.to ...")
-    res = test_cookies(cookie_data)
+
+    res = test_cookies(cookie_data, user_agent=args.user_agent)
+    transport_name = res.get("transport", "standard")
+    print(f"[*] Transport Engine:  {transport_name}")
+
     if res["success"]:
         print(f"\n✅ SUCCESS: {res['message']} (HTTP {res['status_code']})")
     else:
         print(f"\n❌ FAILED: {res['message']} (HTTP {res['status_code']})")
-        print("\n💡 HOW TO REFRESH COOKIES:")
-        print("1. Open Chrome/Firefox and navigate to https://comix.to")
-        print("2. Log in and complete the Cloudflare Turnstile challenge if prompted.")
-        print("3. Use a browser extension like 'Get cookies.txt LOCALLY' or export cookies as Netscape format.")
-        print("4. Save the file as 'comix.to_cookies.txt' in this directory:")
-        print(f"   {Path.cwd() / 'comix.to_cookies.txt'}")
-        print("5. Or set environment variable:")
-        print("   $env:COMIX_COOKIE=\"cf_clearance=...; session=...\"")
+        print("\n💡 HOW TO REFRESH AND MATCH COOKIES:")
+        print("1. Open Chrome/Firefox on THIS computer (same network/IP, no VPN mismatch).")
+        print("2. Navigate to https://comix.to and let the page load completely.")
+        print("3. In Chrome DevTools (F12) Console, run: navigator.userAgent")
+        print("4. Export cookies using 'Get cookies.txt LOCALLY' to 'comix.to_cookies.txt'.")
+        print("5. Test with your exact browser User-Agent:")
+        print("   python src\\cookies.py --ua \"<paste your navigator.userAgent>\"")
+        print("   Or set environment variable:")
+        print("   $env:USER_AGENT=\"<paste your navigator.userAgent>\"")
     print("=" * 65)
