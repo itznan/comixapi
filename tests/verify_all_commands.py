@@ -223,7 +223,7 @@ def verify_all():
     # 19. GET /api/user/following & /api/following
     with patch("src.server.find_default_cookies", return_value="cookies.txt"), \
          patch("src.server.parse_cookie_file", return_value="session=xyz"), \
-         patch.object(ComixAPI, "get_following_titles", return_value=[{"title": "Bookmarked Series"}]) as mock_foll:
+         patch.object(ComixAPI, "get_following_titles", return_value=[{"title": "Bookmarked Series"}]):
         resp1 = client.get("/api/user/following?folder=reading")
         data1 = resp1.json() if resp1.status_code == 200 else {}
         passed1 = resp1.status_code == 200 and data1.get("count") == 1
@@ -237,7 +237,7 @@ def verify_all():
     # 20. GET /api/user/history & /api/history
     with patch("src.server.find_default_cookies", return_value="cookies.txt"), \
          patch("src.server.parse_cookie_file", return_value="session=xyz"), \
-         patch.object(ComixAPI, "get_user_history", return_value=[{"title": "History Series"}]) as mock_hist:
+         patch.object(ComixAPI, "get_user_history", return_value=[{"title": "History Series"}]):
         resp1 = client.get("/api/user/history?page=1&limit=20")
         data1 = resp1.json() if resp1.status_code == 200 else {}
         passed1 = resp1.status_code == 200 and data1.get("count") == 1
