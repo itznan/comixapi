@@ -22,4 +22,6 @@ A clear and concise description of what you expected to happen.
 **Environment (please complete the following information):**
  - OS: [e.g. Ubuntu, Windows, macOS]
  - Python Version: [e.g. 3.10, 3.11, 3.12]
+ - Chrome / Browser Version: [e.g. Chrome 154]
+ - Playwright Installed: [Yes/No]
  - Docker: [Yes/No]
