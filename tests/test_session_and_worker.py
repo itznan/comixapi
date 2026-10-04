@@ -18,28 +18,32 @@ def test_map_user_agent_to_impersonate():
     assert map_user_agent_to_impersonate("") == "chrome"
 
 
-@pytest.mark.asyncio
-async def test_session_broker_in_memory_crud():
-    broker = SessionBroker()
-    await broker.initialize()
+def test_session_broker_in_memory_crud():
+    import asyncio
 
-    # Empty initially
-    assert await broker.get_session("test_session") is None
+    async def _test():
+        broker = SessionBroker()
+        await broker.initialize()
 
-    # Set session
-    payload = {"cookies": "foo=bar", "user_agent": "TestUA"}
-    await broker.set_session("test_session", payload=payload, ttl=300)
+        # Empty initially
+        assert await broker.get_session("test_session") is None
 
-    # Get session
-    retrieved = await broker.get_session("test_session")
-    assert retrieved is not None
-    assert retrieved["cookies"] == "foo=bar"
-    assert retrieved["user_agent"] == "TestUA"
-    assert "expires_at" in retrieved
+        # Set session
+        payload = {"cookies": "foo=bar", "user_agent": "TestUA"}
+        await broker.set_session("test_session", payload=payload, ttl=300)
 
-    # Invalidate
-    await broker.invalidate("test_session")
-    assert await broker.get_session("test_session") is None
+        # Get session
+        retrieved = await broker.get_session("test_session")
+        assert retrieved is not None
+        assert retrieved["cookies"] == "foo=bar"
+        assert retrieved["user_agent"] == "TestUA"
+        assert "expires_at" in retrieved
+
+        # Invalidate
+        await broker.invalidate("test_session")
+        assert await broker.get_session("test_session") is None
+
+    asyncio.run(_test())
 
 
 def test_browser_worker_alias():
